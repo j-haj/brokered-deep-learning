@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package nameservice;
+
+option go_package = "github.com/j-haj/bdl/nameservice";
+
+service BrokerNameService {
+  rpc Register(RegistrationRequest) returns (RegistrationResponse) {}
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
+  rpc RequestBroker(BrokerRequest) returns (BrokerInfo) {}
+}
+
+message RegistrationRequest {
+  string address = 1;
+  repeated string types = 2;
+}
+message RegistrationResponse {
+  int64 id = 1;
+}
+
+message BrokerRequest {}
+message BrokerInfo {
+  string address = 1;
+}
+message HeartbeatRequest {
+  int64 id = 1;
+}
+message HeartbeatResponse {}
