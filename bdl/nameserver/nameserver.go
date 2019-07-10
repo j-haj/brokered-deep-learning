@@ -16,8 +16,7 @@ import (
 )
 
 var (
-	nameserverAddress = flag.String("nameserver_address", "localhost:10000",
-		"Address used by the nameserver.")
+	nameserverAddress = flag.String("nameserver_address", "localhost:10000", "Address used by the nameserver.")
 	debug             = flag.Bool("debug", false, "Enable debug logging.")
 	logFile           = flag.String("log_file", "", "Path to file used for logging.")
 	timeout           = flag.Int("timeout", 5, "Default timeout in seconds for RPCs.")
@@ -129,8 +128,10 @@ func (ns *nameserver) checkHeartbeats() {
 }
 
 func main() {
+	flag.Parse()
 	if *debug {
 		log.SetLevel(log.DebugLevel)
+		log.Debug("Using DEBUG logging.")
 	}
 	if *logFile != "" {
 		file, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
