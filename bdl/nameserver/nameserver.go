@@ -1,9 +1,12 @@
-package nameserver
+package main
 
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/rand"
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -20,6 +23,7 @@ var (
 	logFile           = flag.String("log_file", "", "Path to file used for logging.")
 	timeout           = flag.Int("timeout", 5, "Default timeout in seconds for RPCs.")
 	connectionTimeout = flag.Float64("connection_timeout", 120, "Time to wait in seconds befor removing a broker.")
+	hbCheckFrequency = flag.Int64("heartbeat_check_freq", 60, "Time in seconds between checking which broker connections have timed out.")
 )
 
 type broker struct {
@@ -43,6 +47,15 @@ type nameserver struct {
 	nextBrokerID brokerID
 
 	mu sync.Mutex
+}
+
+func newNameServer() *nameserver {
+	return &nameserver{heartbeats: make(map[brokerID]time.Time),
+		brokers: make(map[brokerID]*broker),
+		locations: make(map[string]map[brokerID]bool),
+		nextBrokerID: brokerID(0),
+	}
+		
 }
 
 // Register a broker with the nameserver
@@ -70,13 +83,13 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 
 	// Create broker nameservice client
 	id := ns.nextBrokerID
-	ns.brokers[id] = &broker{address, location, req.NewBrokerServiceClient(conn)}
+	ns.brokers[id] = &broker{address, location, pbNS.NewBrokerNameServiceClient(conn)}
 	if ns.locations[location] == nil {
 		ns.locations[location] = make(map[brokerID]bool)
 	}
 	ns.locations[location][id] = true
 	ns.nextBrokerID++
-	return &pbNS.RegistrationResponse{Id: id}, nil
+	return &pbNS.RegistrationResponse{Id: int64(id)}, nil
 }
 
 // Receive a heartbeat from a broker.
@@ -89,7 +102,7 @@ func (ns *nameserver) Heartbeat(ctx context.Context, req *pbNS.HeartbeatRequest)
 	}).Debug("Received heartbeat.")
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
-	if p, ok := ns.heartbeats[id]; !ok {
+	if _, ok := ns.heartbeats[id]; !ok {
 		// Handle the case where we don't have a heartbeat record - this occurs when a broker
 		// has been dropped
 		return &pbNS.HeartbeatResponse{Reregister: true}, nil
@@ -110,10 +123,10 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 func (ns *nameserver) checkHeartbeats() {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
-	dead := &[]int{}
+	dead := []brokerID{}
 	// Find dead connections
 	for k, v := range ns.heartbeats {
-		if time.Since(v).Seconds() > connectionTimeout {
+		if time.Since(v).Seconds() > *connectionTimeout {
 			dead = append(dead, k)
 		}
 	}
@@ -140,5 +153,27 @@ func main() {
 		} else {
 			log.SetOutput(file)
 		}
+	}
+
+	// Create server and listen
+	lis, err := net.Listen("tcp", *nameserverAddress)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"address": *nameserverAddress,
+		}).Fatal("Failed to listen.")
+	}
+	log.WithFields(log.Fields{
+		"address": *nameserverAddress,
+	}).Info("Nameserver listening.")
+	s := grpc.NewServer()
+	n := newNameServer()
+	go func(ns *nameserver) {
+		for _ = range time.Tick(time.Duration(*hbCheckFrequency)*time.Second) {
+			ns.checkHeartbeats()
+		}
+	}(n)
+	pbNS.RegisterBrokerNameServiceServer(s, n)
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("Failed to server - %v", err)
 	}
 }

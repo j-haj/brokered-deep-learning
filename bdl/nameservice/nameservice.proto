@@ -19,6 +19,7 @@ message RegistrationRequest {
   string address = 1;
   // Location specifies a physical location like an AWS data center or region
   string location = 2;
+  repeated string types = 3;
 }
 
 message RegistrationResponse {
