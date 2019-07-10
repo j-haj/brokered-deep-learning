@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"math/rand"
 	"net"
 	"os"
@@ -29,7 +28,6 @@ var (
 type broker struct {
 	address  string
 	location string
-	client   pbNS.BrokerNameServiceClient
 }
 
 type brokerID int64
@@ -71,19 +69,9 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
-	// Create connection
-	// TODO: I'm not sure we actually need this connection...
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		log.WithFields(log.Fields{
-			"address": address,
-		}).Error("Failed to establish connection.")
-		return nil, fmt.Errorf("failed to connect to %s - %v", req.GetAddress(), err)
-	}
-
 	// Create broker nameservice client
 	id := ns.nextBrokerID
-	ns.brokers[id] = &broker{address, location, pbNS.NewBrokerNameServiceClient(conn)}
+	ns.brokers[id] = &broker{address, location}
 	if ns.locations[location] == nil {
 		ns.locations[location] = make(map[brokerID]bool)
 	}
