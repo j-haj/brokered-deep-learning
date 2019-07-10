@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service InterBrokerComm {
+  rpc SendAvailability(AvailabilityInfo) returns (AvailabilityResponse) {}
+
+  rpc Connect(ConnectionRequest) returns (ConnectionResponse) {}
+
+
+}
+message AvailabilityInfo {
+  string address = 1;
+  bool available = 2;
+}
+
+message AvailabilityResponse {}
