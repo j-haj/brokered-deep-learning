@@ -1,0 +1,144 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{A Scalable Architecture for Massively Parallel Deep Learning}
+
+\author{\IEEEauthorblockN{Jeff Hajewski}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{University of Iowa}\\
+Iowa City, IA, USA\\
+jeffrey-hajewski@uiowa.edu}
+\and
+\IEEEauthorblockN{Suely Oliveira}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{University of Iowa}\\
+Iowa City, IA, USA \\
+suely-oliveira@uiowa.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\begin{IEEEkeywords}
+distributed deep learning, neural architecture search, artificial intelligence
+\end{IEEEkeywords}
+
+\section{Introduction}
+Building robust and scalable distributed applications is challenging --- getting
+communications patterns correct, handling node failures, and allowing for elastic
+compute resources all contribute to a high level of complexity. These challenges
+are exacerbated for long-runnining applications such as training large deep learning
+models or neural architecture search. Among the many popular frameworks for
+distributed programming, MPI \cite{Forum:1994:MMI:898758} combined with
+additional accelerator paradigms such as OpenMP \cite{Dagum:1998:OIA:615255.615542},
+OpenACC \cite{Wienke:2012:OFE:2402420.2402522}, and CUDA \cite{Nickolls:2008:SPP:1365490.1365500}
+is the common choice for performance-critical numerical workloads. In the deep
+learning setting, MPI is less popular with many favoring mutli-threading in
+combination with multiple GPUs, and more recently experimenting with Kubernetes
+\cite{8094194, 8672301}. Although part of this is simplicity of communication patterns,
+the fault tolerance required for long-running model training (which can last on the
+order of months in the industrial setting) makes MPI a poor choice for the underlying
+communication infrastructure.
+
+In this work we propose an RPC-based system for
+distributed deep learning. We experiment with the proposed architecture in the domain
+of neural architecture search (NAS), an extremely computationally intensive problem that
+trains thousands of deep neural networks in search of an optimal network architecture.
+Or system consists of four separate pieces: a \emph{model} that directs the search
+for a network architecture, a number of \emph{workers} that perform the computational
+work of training the models, a number of \emph{brokers} that form the backbone of
+the data pipeline from model to workers, and a \emph{nameserver} that simplifies the
+process of adding new brokers, workers, or models to the system. Our system offers
+elastic compute resources, allowing an arbitrary number of workers to join during
+high computational loads as well as allowing workers to leave the system, decreasing
+the overall available compute, without needing to restart or manual intervention.
+The system is fault-tolerant to the loss of workers or brokers, and is highly scalable
+due to the ability of the brokers to share work and compute resources. Perhaps most
+importantly from a usability perspective, our system is language agnostic. In our
+experiments, we use Python for our model and workers, which we use to build and train
+or deep neural networks via PyTorch \cite{paszke2017automatic}, and use Go to build
+the data pipeline of brokers. We use gRPC \cite{Wang:1993:GCC:155870.155881} to handle
+the generation of RPC stubs, but could have just as easily used Apache Thrift
+\cite{Slee2007}, which generates stubs in a larger range of languages such as Ocaml,
+Haskell, and Rust.
+
+\section{Neural Architecture Search}
+The goal of neural architecture search (NAS) is to find an optimal neural network
+architecture for a given problem. NAS is computationally intensive due to the
+requirement of having to train a candidate network in order to evaluate its
+effectiveness. Although recent novel approaches have dramatically reduced this
+cost \cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these techniques
+fix certain elements of the design process, somewhat limiting the available
+architectures. Despite the computationally intense nature of the NAS problem,
+the task itself is trivially parallelizable across the network evaluations ---
+two separate networks can be trained simultaneously before being evaluated against
+eachother.
+
+The two common approaches to NAS are reinforcement learning based approaches such
+as \cite{45826, Kyriakides:2018:NAS:3200947.3208068, pmlr-v80-pham18a}, and
+evolutionary approaches such as \cite{DBLP:journals/corr/abs-1711-00436,
+  DBLP:journals/corr/MiikkulainenLMR17, DBLP:conf/icml/RealMSSSTLK17}. In our
+experiments we focus on the evolutionary approach due to its simplicity both in
+understanding and implementation.
+
+\subsection{Evolutionary Algorithms for NAS}
+
+
+\section{RPC-based Communication}
+Remote Procedure Call (RPC) offers a method of invoking a function on a remote
+computer with a given set of arguments. Most RPC frameworks involve a DSL used
+to define the RPC service, that is, the API available to the caller, and some
+type of data serialization format. For example, gRPC uses Protocol Buffers
+\cite{Varda2008} as the serialization format for data sent across the network.
+RPC offers a number of advantages for network communication. It is robust to
+node failures or network partitions (the RPC invokation simply fails). The data
+sent across the network is compactly represented, giving way to high bandwidth
+and low latency communication. The point-to-point communication allows for
+diverse communication patterns and paradigms. RPC forms the network communication
+infrastructure at Google \cite{van2017production}, Facebook \cite{Slee2007},
+as well as the communication infrastructure of Hadoop
+\cite{Shvachko:2010:HDF:1913798.1914427, Lu:2013:HDH:2570457.2571128}.
+
+\subsection{RPC vs MPI}
+
+\section{System Architecture}
+As previously mentioned, our system consists of four different components. A model
+is a problem specific implementation that controls what is sent to the system for
+evaluation and handles the result it receives. The brokers form the data pipeline
+of the system, moving work to available workers. Workers form the other customizable
+part of the system because they need to know how to perform their assigned work.
+Lastly, the nameserver maps known brokers to their network address -- this is useful
+for connecting to brokers, such as a model connecting to a broker, a broker connecting
+to a broker (for broker-broker peering), or a worker connecting to a broker.
+
+\subsection{Model}
+
+\subsection{Worker}
+
+\subsection{Nameserver}
+
+\subsection{Broker}
+
+\section{Experiments}
+
+\section{Related Work}
+
+\section{Conclusion}
+
+\bibliographystyle{abbrv}
+\bibliography{/home/jhaj/research/bibliographies/bdl, /home/jhaj/research/bibliographies/comps_plan}
+
+\end{document}
