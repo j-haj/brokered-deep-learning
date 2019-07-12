@@ -8,9 +8,6 @@ service BrokerNameService {
   // Register registers a broker with the nameserver.
   rpc Register(RegistrationRequest) returns (RegistrationResponse) {}
 
-  // Heartbeat is a keep alive request sent from a client broker to the nameserver.
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
-
   // RequestBroker returns a random broker in the request location.
   rpc RequestBroker(BrokerRequest) returns (BrokerInfo) {}
 }
@@ -35,15 +32,4 @@ message BrokerRequest {
 message BrokerInfo {
   // Address:port of an available broker.
   string address = 1;
-}
-
-message HeartbeatRequest {
-  // Broker ID
-  int64 id = 1;
-}
-
-message HeartbeatResponse {
-  // Reregister = true means the broker should re-regsiter with the nameserver. The
-  // nameserver likely dropped the connection due to timeout.
-  bool reregister = 1;
 }

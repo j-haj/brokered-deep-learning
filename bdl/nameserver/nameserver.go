@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	pbNS "github.com/j-haj/bdl/nameservice"
+	pbHB "github.com/j-haj/bdl/heartbeat"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,6 +72,7 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 	// Create broker nameservice client
 	id := ns.nextBrokerID
 	ns.brokers[id] = &broker{address, location}
+	ns.heartbeats[id] = time.Now()
 	if ns.locations[location] == nil {
 		ns.locations[location] = make(map[brokerID]bool)
 	}
@@ -80,7 +82,7 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 }
 
 // Receive a heartbeat from a broker.
-func (ns *nameserver) Heartbeat(ctx context.Context, req *pbNS.HeartbeatRequest) (*pbNS.HeartbeatResponse, error) {
+func (ns *nameserver) Heartbeat(ctx context.Context, req *pbHB.HeartbeatRequest) (*pbHB.HeartbeatResponse, error) {
 	rcvd := time.Now()
 	id := brokerID(req.GetId())
 	log.WithFields(log.Fields{
@@ -92,10 +94,14 @@ func (ns *nameserver) Heartbeat(ctx context.Context, req *pbNS.HeartbeatRequest)
 	if _, ok := ns.heartbeats[id]; !ok {
 		// Handle the case where we don't have a heartbeat record - this occurs when a broker
 		// has been dropped
-		return &pbNS.HeartbeatResponse{Reregister: true}, nil
+		log.WithFields(log.Fields{
+			"broker_id": id,
+			"nameserver": *nameserverAddress,
+		}).Debug("Unrecognized broker.")
+		return &pbHB.HeartbeatResponse{Reregister: true}, nil
 	}
 	ns.heartbeats[id] = rcvd
-	return &pbNS.HeartbeatResponse{Reregister: false}, nil
+	return &pbHB.HeartbeatResponse{Reregister: false}, nil
 }
 
 func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest) (*pbNS.BrokerInfo, error) {
@@ -108,22 +114,30 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 }
 
 func (ns *nameserver) checkHeartbeats() {
-	ns.mu.Lock()
-	defer ns.mu.Unlock()
-	dead := []brokerID{}
-	// Find dead connections
-	for k, v := range ns.heartbeats {
-		if time.Since(v).Seconds() > *connectionTimeout {
-			dead = append(dead, k)
+	for _ = range time.Tick(time.Duration(*hbCheckFrequency)*time.Second) {
+		ns.mu.Lock()
+		dead := []brokerID{}
+		// Find dead connections
+		for k, v := range ns.heartbeats {
+			if time.Since(v).Seconds() > *connectionTimeout {
+				dead = append(dead, k)
+			}
 		}
-	}
 
-	// Remove dead connections
-	for _, k := range dead {
-		l := ns.brokers[k].location
-		delete(ns.heartbeats, k)
-		delete(ns.brokers, k)
-		delete(ns.locations[l], k)
+		// Remove dead connections
+		for _, k := range dead {
+			l := ns.brokers[k].location
+			if _, ok := ns.heartbeats[k]; ok {
+				delete(ns.heartbeats, k)
+			}
+			if _, ok := ns.brokers[k]; ok {
+				delete(ns.brokers, k)
+			}
+			if _, ok := ns.locations[l][k]; ok {
+				delete(ns.locations[l], k)
+			}
+		}
+		ns.mu.Unlock()
 	}
 }
 
@@ -156,12 +170,10 @@ func main() {
 	}).Info("Nameserver listening.")
 	s := grpc.NewServer()
 	n := newNameServer()
-	go func(ns *nameserver) {
-		for _ = range time.Tick(time.Duration(*hbCheckFrequency)*time.Second) {
-			ns.checkHeartbeats()
-		}
-	}(n)
+
+	go n.checkHeartbeats()
 	pbNS.RegisterBrokerNameServiceServer(s, n)
+	pbHB.RegisterHeartbeatServer(s, n)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to server - %v", err)
 	}
