@@ -1,16 +1,26 @@
 syntax = "proto3";
 
+import "result/result.proto";
+import "task/task.proto";
+
 service InterBrokerComm {
   // SendAvailability communicates a brokers availability for additional tasks.
   // It is used to be send and retract availability.
   rpc SendAvailability(AvailabilityInfo) returns (AvailabilityResponse) {}
 
-
   // Connect establishes a link between two brokers, allowing them to share
   // work.
   rpc Connect(ConnectionRequest) returns (ConnectionResponse) {}
 
+  // Disconnect can be called by a broker to terminate a connection with a linked broker.
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 
+  // ShareTask sends a task to a linked broker.
+  rpc ShareTask(ShareRequest) returns (ShareResponse) {}
+
+  // ProcessResult either sends the result to the model or sends the result on to the
+  // next broker.
+  rpc ProcessResult(result.Result) returns (ProcessResponse) {}
 }
 message AvailabilityInfo {
   string address = 1;
@@ -18,3 +28,24 @@ message AvailabilityInfo {
 }
 
 message AvailabilityResponse {}
+
+message ConnectionRequest {
+  string address = 1;
+}
+
+message ConnectionResponse {
+  bool ok = 1;
+}
+
+message DisconnectRequest {}
+message DisconnectResponse {}
+message ProcessResponse {}
+
+message ShareRequest {
+  string originator = 1;
+  task.Task task = 2;
+}
+
+message ShareResponse {
+  bool ok = 1;
+}
