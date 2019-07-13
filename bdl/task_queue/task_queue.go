@@ -1,20 +1,25 @@
 package task_queue
 
 import (
-	pbTask "github.com/j-haj/bdl/task"
+	"fmt"
 	"sync"
+	
+	pbTask "github.com/j-haj/bdl/task"
 )
+
+type TaskID int64
 
 type taskNode struct {
 	next *taskNode
-	data pbTask.Task
+	id TaskID
+	data *pbTask.Task
 }
 
 // FIFO queue implemented with a singly linked list
 type TaskQueue struct {
 	head *taskNode
 	tail *taskNode
-	size UInt
+	size int
 	mu   sync.Mutex
 }
 
@@ -22,14 +27,15 @@ type TaskQueue struct {
 func (q *TaskQueue) Push(task *pbTask.Task) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-
-	if head == nil && tail == nil {
-		head = &taskNode{nil, task}
-		tail = head
+	t := &taskNode{nil, TaskID(task.GetTaskId()), task}
+	if q.head == nil && q.tail == nil {
+		q.head = t
+		q.tail = q.head
 	} else {
-		tail.next = &taskNode{nil, task}
+		q.tail.next = t
+		q.tail = t;
 	}
-	size++
+	q.size++
 }
 
 // Pop returns the task at the front of the queue or an error if the queue is empty.
@@ -40,15 +46,44 @@ func (q *TaskQueue) Pop() (*pbTask.Task, error) {
 		return nil, fmt.Errorf("cannot pop from an empty queue")
 	}
 	task := q.head
-	task.next = nil
 	q.head = q.head.next
+	q.size--
 	return task.data, nil
 }
 
-func (q *TaskQueue) isEmpty() bool {
+// Remove removes the task from the queue. If the task is not in the queue the method exits
+// without error.
+func (q *TaskQueue) Remove(taskId TaskID) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.head == nil {
+		return
+	} else if q.head.id == taskId {
+		if q.tail == q.head {
+			q.tail = q.head.next
+		}
+		q.head = q.head.next
+	} else {
+		x := q.head
+		y := x
+		for x != nil && x.id != taskId {
+			y = x
+			x = x.next
+		}
+		if x == nil {
+			return
+		}
+
+		y.next = x.next
+	}
+	q.size--	
+}
+
+func (q *TaskQueue) Empty() bool {
 	return q.size == 0
 }
 
-func (q *TaskQueue) Size() UInt {
+func (q *TaskQueue) Size() int {
 	return q.size
 }
