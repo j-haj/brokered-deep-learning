@@ -1,8 +1,13 @@
 syntax = "proto3";
 
 service InterBrokerComm {
+  // SendAvailability communicates a brokers availability for additional tasks.
+  // It is used to be send and retract availability.
   rpc SendAvailability(AvailabilityInfo) returns (AvailabilityResponse) {}
 
+
+  // Connect establishes a link between two brokers, allowing them to share
+  // work.
   rpc Connect(ConnectionRequest) returns (ConnectionResponse) {}
 
 

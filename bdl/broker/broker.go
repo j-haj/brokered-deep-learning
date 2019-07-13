@@ -12,6 +12,7 @@ import (
 
 	pbNS "github.com/j-haj/bdl/nameservice"
 	pbHB "github.com/j-haj/bdl/heartbeat"
+	pbTask "github.com/j-haj/bdl/task"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,11 +29,22 @@ var (
 	location = flag.String("location", "unknown", "Location of broker.")
 )
 
+type taskID string
+type brokerID int64
+
+type task struct {
+	owner brokerID
+	taskProto *pbTask.Task
+}
+
 type broker struct {
-	brokerId int64
+	brokerId brokerID
 	nsClient pbNS.BrokerNameServiceClient
 	hbClient pbHB.HeartbeatClient
 	types []string
+	ownedTasks map[taskID]*pbTask.Task
+	borrowedTasks map[taskID]*pbTask.Task
+//	processingTasks map
 }
 
 func NewBroker(types []string) (*broker, error) {
@@ -42,7 +54,7 @@ func NewBroker(types []string) (*broker, error) {
 	}
 	
 	b := &broker{
-		brokerId: 0,
+		brokerId: brokerID(0),
 		nsClient: pbNS.NewBrokerNameServiceClient(conn),
 		hbClient: pbHB.NewHeartbeatClient(conn),
 		types: types,
