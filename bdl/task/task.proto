@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package task;
+
+option go_package = "github.com/j-haj/bdl/task";
+
+message Task {
+  int64 task_id = 1;
+  string source = 2;
+  bytes task_obj = 3;
+}
