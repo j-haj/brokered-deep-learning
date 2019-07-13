@@ -10,10 +10,14 @@ import (
 
 	"google.golang.org/grpc"
 
-	pbNS "github.com/j-haj/bdl/nameservice"
-	pbHB "github.com/j-haj/bdl/heartbeat"
-	pbTask "github.com/j-haj/bdl/task"
 	log "github.com/sirupsen/logrus"
+	
+	pbBroker "github.com/j-haj/bdl/broker_comm"
+	pbHB "github.com/j-haj/bdl/heartbeat"
+	pbNS "github.com/j-haj/bdl/nameservice"
+	pbResult "github.com/j-haj/bdl/result"
+	pbTask "github.com/j-haj/bdl/task"
+
 )
 
 var (
@@ -37,14 +41,27 @@ type task struct {
 	taskProto *pbTask.Task
 }
 
+type brokerConnection struct {
+	hbClient pbHB.HeartbeatClient
+	status bool
+}
+
 type broker struct {
 	brokerId brokerID
 	nsClient pbNS.BrokerNameServiceClient
 	hbClient pbHB.HeartbeatClient
 	types []string
-	ownedTasks map[taskID]*pbTask.Task
-	borrowedTasks map[taskID]*pbTask.Task
-//	processingTasks map
+	heartbeats map[brokerID]time.Time
+	// ownedTasks are tasks sent to this broker from a model
+	ownedTasks map[taskID]task
+	// queuedTasks are tasks waiting to be sent to an available worker
+	queuedTasks TaskQueue
+	// borrowedTasks are tasks that have been sent from another broker
+	borrowedTasks map[taskID]task
+	// sharedTasks are tasks owned by this broker but sent to another broker
+	sharedTasks map[taskID]brokerID
+	// processingTasks are tasks currently being processed by a worker
+	processingTasks map[taskID]task
 }
 
 func NewBroker(types []string) (*broker, error) {
@@ -89,6 +106,7 @@ func (b *broker) registerWithNameserver() error {
 	return nil
 }
 
+// sendHeartbeat sends heartbeat to nameserver and any connected brokers.
 func (b *broker) sendHeartbeat() {
 	for _ = range time.Tick(time.Duration(*connectionTimeout) * time.Second) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
@@ -124,6 +142,47 @@ func (b *broker) sendHeartbeat() {
 			}
 		}
 	}
+}
+
+func (b *broker) checkHeartbeats() {
+	for _ = range time.Tick(time.Duration(*connectionTimeout) * time.Second) {
+		// Get timed out connections
+		deadConnection := []brokerID{}
+		for id, t := range b.heartbeats {
+			if time.Since(t).Seconds() > *connectionTimeout {
+				// Disconnect
+				deadConnections = append(deadConnections, id)
+			}
+		}
+		
+		// Handle timed out connections
+		for _, id := range deadConnections {
+			delete(b.heartbeats, id)
+			if t, ok := b.sharedTasks; ok {
+
+			}
+		}
+	}
+}
+
+func (b *broker) SendAvailability(ctx context.Context, req *pbBroker.AvailabilityInfo) (*pbBroker.AvailabilityResponse, error) {
+	return nil, fmt.Error("Not implemented")
+}
+
+func (b *broker) Connect(ctx context.Context, req *pbBroker.ConnectionRequest) (*pbBroker.ConnectionResponse, error) {
+	return nil, fmt.Error("Not implemented")
+}
+
+func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest) (*pbBroker.DisconnectResponse, error) {
+	return nil, fmt.Error("Not implemented")
+}
+
+func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pbBroker.ShareResponse, error) {
+	return nil, fmt.Error("Not implemented")
+}
+
+func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBroker.ProcessResponse, error) {
+	return nil, fmt.Error("Not implemented")
 }
 
 func main() {
