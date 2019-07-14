@@ -64,10 +64,16 @@ func TestRemove(t *testing.T) {
 
 	q.Remove(3)
 	assert.Equal(t, q.Size(), 9, "they should be equal")
+
+	// There is no 3 remaining in the queue, this should be idempotent
+	q.Remove(3)
+	assert.Equal(t, q.Size(), 9, "they should be equal")
+	
 	for i := 0; i < 9; i++ {
 		v, err := q.Pop()
 		assert.NotEqual(t, v.GetTaskId(), int64(3), "they should not be equal")
 		assert.Nil(t, err)
 	}
-		
+
+
 }
