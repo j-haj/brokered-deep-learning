@@ -28,17 +28,23 @@ var (
 	debug = flag.Bool("debug", false, "Enable debug logging.")
 	logFile = flag.String("log_file", "", "Path to file used for logging.")
 	timeout = flag.Int64("rpc_timeout", 1, "Timeout in seconds used for RPCs.")
-	connectionTimeout = flag.Int64("heartbeat_frequency", 100,
+	connectionTimeout = flag.Float64("heartbeat_frequency", 100.0,
 		"Time to wait in between heartbeats in seconds.")
 	location = flag.String("location", "unknown", "Location of broker.")
 )
 
+// taskID is a combination of task source and task ID  - <task source>:<task id>.
 type taskID string
 type brokerID int64
 
 type task struct {
+	id taskID
 	owner brokerID
 	taskProto *pbTask.Task
+}
+
+func newTask(owner brokerID, t *pbTask.Task) task {
+	return task{buildTaskID(t), owner, t}
 }
 
 type brokerConnection struct {
@@ -47,9 +53,14 @@ type brokerConnection struct {
 }
 
 type broker struct {
+	// Timeout buffer is the fraction of the timeout that is used to send heartbeats.
+	// For example, a timeoutBuffer of .75 means instead of sending a heartbeat message
+	// every 100s the broker sends the heartbeat every 75s.
+	timeoutBuffer float64
 	brokerId brokerID
 	nsClient pbNS.BrokerNameServiceClient
 	hbClient pbHB.HeartbeatClient
+	linkedBrokers map[brokerID]brokerConnection
 	types []string
 	heartbeats map[brokerID]time.Time
 	// ownedTasks are tasks sent to this broker from a model
@@ -71,6 +82,7 @@ func NewBroker(types []string) (*broker, error) {
 	}
 	
 	b := &broker{
+		timeoutBuffer: .75,
 		brokerId: brokerID(0),
 		nsClient: pbNS.NewBrokerNameServiceClient(conn),
 		hbClient: pbHB.NewHeartbeatClient(conn),
@@ -83,6 +95,15 @@ func NewBroker(types []string) (*broker, error) {
 	}
 
 	return b, nil
+}
+
+func buildTaskID(t *pbTask.Task) taskID {
+	return fmt.Sprintf("%s#%d", t.GetSource(), t.GetTaskId())
+}
+
+func getSourceAndTaskId(tid TaskID) (string, int64) {
+	vals := strings.Split(string(tid))
+	return vals[0], vals[1]
 }
 
 func (b *broker) registerWithNameserver() error {
@@ -108,7 +129,7 @@ func (b *broker) registerWithNameserver() error {
 
 // sendHeartbeat sends heartbeat to nameserver and any connected brokers.
 func (b *broker) sendHeartbeat() {
-	for _ = range time.Tick(time.Duration(*connectionTimeout) * time.Second) {
+	for _ = range time.Tick(time.Duration(*connectionTimeout * b.timeoutBuffer) * time.Second) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
 		defer cancel()
 		log.WithFields(log.Fields{
@@ -156,6 +177,9 @@ func (b *broker) checkHeartbeats() {
 		}
 		
 		// Handle timed out connections
+		// 1. Remove from heartbeats
+		// 2. Requeue all shared tasks
+		// 3. Drop all tasks enqueued and shared from lost broker
 		for _, id := range deadConnections {
 			delete(b.heartbeats, id)
 			if t, ok := b.sharedTasks; ok {
@@ -177,7 +201,12 @@ func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest
 	return nil, fmt.Error("Not implemented")
 }
 
+// ShareTask is called when the broker is receiving a task from a linked broker. The linked
+// broker is sending a task to this broker to share a task.
 func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pbBroker.ShareResponse, error) {
+	taskId := buildTaskID(req.GetTask())
+	task := newTask(req.GetOriginatorId(), req.GetTask())
+	b.sharedTasks[brokerID(req.GetOriginatorId())] = task
 	return nil, fmt.Error("Not implemented")
 }
 
@@ -215,6 +244,7 @@ func main() {
 	types := []string{"cpu"}
 	b, err := NewBroker(types)
 	go b.sendHeartbeat()
+	go b.checkHeartbeats()
 	if err != nil {
 		log.Fatalf("Failed to create broker - %v\n", err)
 	}

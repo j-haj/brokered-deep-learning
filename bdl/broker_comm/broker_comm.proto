@@ -42,7 +42,8 @@ message DisconnectResponse {}
 message ProcessResponse {}
 
 message ShareRequest {
-  string originator = 1;
+  int64 originator_id = 1;
+  string originator_address = 2;
   task.Task task = 2;
 }
 
