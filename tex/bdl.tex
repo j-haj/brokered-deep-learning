@@ -204,7 +204,11 @@ sure there is always at least one nameserver running. Because the nameserver
 can force brokers to re-register, restoring a failed nameserver simply forces all
 incoming heartbeat requests to re-register and thus restoring the state of the
 nameserver broker registry prior to the crash. This mechanism greatly simplifies
-the implementation of the nameserver.
+the implementation of the nameserver. The only state that must persist between
+crashes of the nameserver is that of the next available broker ID. If the nameserver
+does not persist this to some type of durable medium (e.g., HDFS
+\cite{Shvachko:2010:HDF:1913798.1914427}) then it is possible for multiple brokers
+to receive the same broker ID.
 
 
 \subsection{Broker}
@@ -222,6 +226,8 @@ workers or other brokers. When a result is received from a worker or another bro
 the corresponding ID will be removed from the processing queue and the result will
 be added to the result queue. The broker pulls tasks from the result queue and sends
 the result to its owner, which may be a model or another broker.
+
+Brokers can establish links with other brokers.
 
 
 \section{Experiments}
