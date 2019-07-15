@@ -5,6 +5,7 @@ package result;
 option go_package = "github.com/j-haj/bdl/result";
 
 message Result {
-  string destination = 1;
-  bytes result_obj = 2;
+  string task_id = 1;
+  string destination = 2;
+  bytes result_obj = 3;
 }

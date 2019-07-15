@@ -30,7 +30,11 @@ type broker struct {
 	location string
 }
 
-type brokerID int64
+type brokerID string
+
+func brokerIdFromInt(address string, i int) brokerId {
+	return fmt.Sprintf("%s#%d", address, i)
+}
 
 type nameserver struct {
 
@@ -38,11 +42,11 @@ type nameserver struct {
 	heartbeats map[brokerID]time.Time
 
 	// Stores the brokers known by the nameserver
-	brokers map[brokerID]*broker
+	brokers map[brokerID]broker
 
 	locations map[string]map[brokerID]bool
 
-	nextBrokerID brokerID
+	nextBrokerID int
 
 	mu sync.Mutex
 }
@@ -50,9 +54,9 @@ type nameserver struct {
 // NewNameServer constructs a new nameserver.
 func NewNameServer() *nameserver {
 	return &nameserver{heartbeats: make(map[brokerID]time.Time),
-		brokers: make(map[brokerID]*broker),
+		brokers: make(map[brokerID]broker),
 		locations: make(map[string]map[brokerID]bool),
-		nextBrokerID: brokerID(0),
+		nextBrokerID: 0,
 	}
 		
 }
@@ -71,15 +75,15 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 	defer ns.mu.Unlock()
 
 	// Create broker nameservice client
-	id := ns.nextBrokerID
-	ns.brokers[id] = &broker{address, location}
+	id := brokerIdFromInt(address, ns.nextBrokerID)
+	ns.brokers[id] = broker{address, location}
 	ns.heartbeats[id] = time.Now()
 	if ns.locations[location] == nil {
 		ns.locations[location] = make(map[brokerID]bool)
 	}
 	ns.locations[location][id] = true
 	ns.nextBrokerID++
-	return &pbNS.RegistrationResponse{Id: int64(id)}, nil
+	return &pbNS.RegistrationResponse{Id: id)}, nil
 }
 
 // Receive a heartbeat from a broker.
@@ -109,9 +113,23 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 	location := req.GetLocation()
+	if _, ok := ns.locations[location]; !ok {
+		log.WithFields(log.Fields{
+			"broker_address": req.GetAddress(),
+			"location": location,
+		}).Error("Unknown location received from broker.")
+		return nil, fmt.Error("unknown location")
+	}
 	n := len(ns.locations[location])
-	idx := brokerID(rand.Intn(n))
-	return &pbNS.BrokerInfo{Address: ns.brokers[idx].address}, nil
+	count := 0
+	for bId := range ns.locations[location] {
+		if count == n {
+			addr := strings.Split(ns.locations[location][bId], "#")[0]
+			return &pbNS.BrokerInfo{Address: addr}, nil
+		}
+		count++
+	}
+	return nil, fmt.Error("iterated out of locations - invalid state")
 }
 
 func (ns *nameserver) checkHeartbeats() {

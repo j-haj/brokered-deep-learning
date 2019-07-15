@@ -23,14 +23,14 @@ service InterBrokerComm {
   rpc ProcessResult(result.Result) returns (ProcessResponse) {}
 }
 message AvailabilityInfo {
-  string address = 1;
+  string broker_id = 1;
   bool available = 2;
 }
 
 message AvailabilityResponse {}
 
 message ConnectionRequest {
-  string address = 1;
+  string broker_id = 1;
 }
 
 message ConnectionResponse {
@@ -42,7 +42,7 @@ message DisconnectResponse {}
 message ProcessResponse {}
 
 message ShareRequest {
-  int64 originator_id = 1;
+  string originator_id = 1;
   string originator_address = 2;
   task.Task task = 3;
 }
