@@ -1,13 +1,18 @@
 package task_queue;
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	pb "github.com/j-haj/bdl/task"
 )
 
-var emptyTask = &pb.Task{TaskId: 0, Source: "test"}
+var emptyTask = &pb.Task{TaskId: "localhost:10000#0", Source: "test"}
+
+func buildTaskId(i int) string {
+	return fmt.Sprintf("localhost:10000#%d", i)
+}
 
 func TestInitializedQueueIsEmpty(t *testing.T) {
 	q := &TaskQueue{}
@@ -22,6 +27,24 @@ func TestPush(t *testing.T) {
 	assert.Equal(t, q.size, 1, "they should be equal")
 	assert.NotNil(t, q.head)
 	assert.NotNil(t, q.tail)
+}
+
+func TestPushFront(t *testing.T) {
+	q := &TaskQueue{}
+	q.PushFront(emptyTask)
+
+	assert.Equal(t, q.size, 1, "they should be equal")
+	assert.NotNil(t, q.head)
+	assert.NotNil(t, q.tail)
+
+	t1 := &pb.Task{TaskId: buildTaskId(3), Source: "test"}
+	q.PushFront(t1)
+	t2, err := q.Pop()
+	assert.Nil(t, err)
+	assert.Equal(t, t1, t2, "they should be equal")
+	t3, err := q.Pop()
+	assert.Nil(t, err)
+	assert.Equal(t, t3, emptyTask, "they should be equal")
 }
 
 func TestPop(t *testing.T) {
@@ -39,7 +62,7 @@ func TestPop(t *testing.T) {
 func TestSize(t *testing.T) {
 	q := &TaskQueue{}
 	for i := 0; i < 10; i++ {
-		q.Push(&pb.Task{TaskId: int64(i), Source: "test"})
+		q.Push(&pb.Task{TaskId: buildTaskId(i), Source: "test"})
 		assert.Equal(t, q.Size(), i+1, "they should be equal")
 	}
 
@@ -47,7 +70,7 @@ func TestSize(t *testing.T) {
 		v, err := q.Pop()
 		assert.Equal(t, q.Size(), 9-i, "they should be equal")
 		assert.Nil(t, err)
-		assert.Equal(t, v.GetTaskId(), int64(i), "they should be equal")
+		assert.Equal(t, v.GetTaskId(), buildTaskId(i), "they should be equal")
 	}
 }
 
@@ -59,19 +82,19 @@ func TestEmpty(t *testing.T) {
 func TestRemove(t *testing.T) {
 	q := &TaskQueue{}
 	for i := 0; i < 10; i++ {
-		q.Push(&pb.Task{TaskId: int64(i), Source: "test"})
+		q.Push(&pb.Task{TaskId: buildTaskId(i), Source: "test"})
 	}
 
-	q.Remove(3)
+	q.Remove(TaskID(buildTaskId(3)))
 	assert.Equal(t, q.Size(), 9, "they should be equal")
 
 	// There is no 3 remaining in the queue, this should be idempotent
-	q.Remove(3)
+	q.Remove(TaskID(buildTaskId(3)))
 	assert.Equal(t, q.Size(), 9, "they should be equal")
 	
 	for i := 0; i < 9; i++ {
 		v, err := q.Pop()
-		assert.NotEqual(t, v.GetTaskId(), int64(3), "they should not be equal")
+		assert.NotEqual(t, v.GetTaskId(), buildTaskId(3), "they should not be equal")
 		assert.Nil(t, err)
 	}
 

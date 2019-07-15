@@ -12,7 +12,7 @@ service TaskService {
 }
 
 message Task {
-  int64 task_id = 1;
+  string task_id = 1;
   string source = 2;
   bytes task_obj = 3;
 }

@@ -7,7 +7,7 @@ import (
 	pbTask "github.com/j-haj/bdl/task"
 )
 
-type TaskID int64
+type TaskID string
 
 type taskNode struct {
 	next *taskNode
@@ -35,6 +35,19 @@ func (q *TaskQueue) Push(task *pbTask.Task) {
 		q.tail.next = t
 		q.tail = t;
 	}
+	q.size++
+}
+
+// PushFront adds a task to the front of the queue.
+func (q *TaskQueue) PushFront(task *pbTask.Task) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	t := &taskNode{q.head, TaskID(task.GetTaskId()), task}
+	q.head = t
+	if q.tail == nil {
+		q.tail = t
+	}
+
 	q.size++
 }
 
