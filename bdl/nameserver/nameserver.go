@@ -47,7 +47,8 @@ type nameserver struct {
 	mu sync.Mutex
 }
 
-func newNameServer() *nameserver {
+// NewNameServer constructs a new nameserver.
+func NewNameServer() *nameserver {
 	return &nameserver{heartbeats: make(map[brokerID]time.Time),
 		brokers: make(map[brokerID]*broker),
 		locations: make(map[string]map[brokerID]bool),
@@ -169,7 +170,7 @@ func main() {
 		"address": *nameserverAddress,
 	}).Info("Nameserver listening.")
 	s := grpc.NewServer()
-	n := newNameServer()
+	n := NewNameServer()
 
 	go n.checkHeartbeats()
 	pbNS.RegisterBrokerNameServiceServer(s, n)

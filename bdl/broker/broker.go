@@ -17,6 +17,7 @@ import (
 	pbNS "github.com/j-haj/bdl/nameservice"
 	pbResult "github.com/j-haj/bdl/result"
 	pbTask "github.com/j-haj/bdl/task"
+	taskQ "github.com/j-haj/bdl/task_queue"
 
 )
 
@@ -63,15 +64,19 @@ type broker struct {
 	linkedBrokers map[brokerID]brokerConnection
 	types []string
 	heartbeats map[brokerID]time.Time
+	// associatedTasks is a map from brokerID to taskID. This is used for dqueueing and
+	// requeueing tasks.
+	associatedTasks map[brokerID][]taskID
 	// ownedTasks are tasks sent to this broker from a model
 	ownedTasks map[taskID]task
 	// queuedTasks are tasks waiting to be sent to an available worker
-	queuedTasks TaskQueue
+	queuedTasks taskQ.TaskQueue
 	// borrowedTasks are tasks that have been sent from another broker
 	borrowedTasks map[taskID]task
 	// sharedTasks are tasks owned by this broker but sent to another broker
 	sharedTasks map[taskID]brokerID
-	// processingTasks are tasks currently being processed by a worker
+	// processingTasks are tasks currently being processed by a worker. If a task comes back
+	// and is not in the processingTasks map the result should be dropped.
 	processingTasks map[taskID]task
 }
 
@@ -95,15 +100,6 @@ func NewBroker(types []string) (*broker, error) {
 	}
 
 	return b, nil
-}
-
-func buildTaskID(t *pbTask.Task) taskID {
-	return fmt.Sprintf("%s#%d", t.GetSource(), t.GetTaskId())
-}
-
-func getSourceAndTaskId(tid TaskID) (string, int64) {
-	vals := strings.Split(string(tid))
-	return vals[0], vals[1]
 }
 
 func (b *broker) registerWithNameserver() error {
@@ -181,11 +177,30 @@ func (b *broker) checkHeartbeats() {
 		// 2. Requeue all shared tasks
 		// 3. Drop all tasks enqueued and shared from lost broker
 		for _, id := range deadConnections {
+			// 1. Remove heartbeat
 			delete(b.heartbeats, id)
-			if t, ok := b.sharedTasks; ok {
-
+			if tid, ok := b.associatedTasks[id]; !ok {
+				// If there are no associated tasks with this broker
+				// we are done.
+				continue
 			}
+			tid := b.associatedTasks[id]
+			if t, ok := b.sharedTasks[tid]; ok {
+				// Shared tasks need to be requeued
+			} else if _, ok := b.borrowedTasks[tid]; ok {
+				// Borrowed tasks can be dropped since the broker will
+				// re-send its tasks after a crash.
+				delete(b.borrowedTasks, tid)
+			}
+
+			if _, ok := b.processingTasks[tid]; ok {
+				// Remove task from processing task queue so its result will
+				// be dropped when returned from worker.
+				delete(b.processingTasks, tid)
+			}
+			
 		}
+
 	}
 }
 
@@ -204,9 +219,12 @@ func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest
 // ShareTask is called when the broker is receiving a task from a linked broker. The linked
 // broker is sending a task to this broker to share a task.
 func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pbBroker.ShareResponse, error) {
-	taskId := buildTaskID(req.GetTask())
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	taskId := req.GetTask().GetTaskId()
 	task := newTask(req.GetOriginatorId(), req.GetTask())
-	b.sharedTasks[brokerID(req.GetOriginatorId())] = task
+	b.borrowedTasks[taskId] = task
+	b.associatedTasks[req.GetOriginatorId()] = taskId
 	return nil, fmt.Error("Not implemented")
 }
 

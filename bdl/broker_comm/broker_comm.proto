@@ -44,7 +44,7 @@ message ProcessResponse {}
 message ShareRequest {
   int64 originator_id = 1;
   string originator_address = 2;
-  task.Task task = 2;
+  task.Task task = 3;
 }
 
 message ShareResponse {
