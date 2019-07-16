@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"math/rand"
+	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,8 +33,8 @@ type broker struct {
 
 type brokerID string
 
-func brokerIdFromInt(address string, i int) brokerId {
-	return fmt.Sprintf("%s#%d", address, i)
+func brokerIdFromInt(address string, i int) brokerID {
+	return brokerID(fmt.Sprintf("%s#%d", address, i))
 }
 
 type nameserver struct {
@@ -83,7 +84,7 @@ func (ns *nameserver) Register(ctx context.Context, req *pbNS.RegistrationReques
 	}
 	ns.locations[location][id] = true
 	ns.nextBrokerID++
-	return &pbNS.RegistrationResponse{Id: id)}, nil
+	return &pbNS.RegistrationResponse{Id: string(id)}, nil
 }
 
 // Receive a heartbeat from a broker.
@@ -118,18 +119,18 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 			"broker_address": req.GetAddress(),
 			"location": location,
 		}).Error("Unknown location received from broker.")
-		return nil, fmt.Error("unknown location")
+		return nil, fmt.Errorf("unknown location")
 	}
 	n := len(ns.locations[location])
 	count := 0
 	for bId := range ns.locations[location] {
 		if count == n {
-			addr := strings.Split(ns.locations[location][bId], "#")[0]
+			addr := strings.Split(string(bId), "#")[0]
 			return &pbNS.BrokerInfo{Address: addr}, nil
 		}
 		count++
 	}
-	return nil, fmt.Error("iterated out of locations - invalid state")
+	return nil, fmt.Errorf("iterated out of locations - invalid state")
 }
 
 func (ns *nameserver) checkHeartbeats() {
