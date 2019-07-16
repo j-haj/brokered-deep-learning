@@ -1,17 +1,16 @@
 package task_queue
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 	
-	pbTask "github.com/j-haj/bdl/task"
+	pbTask "github.com/j-haj/bdl/task_service"
+	task "github.com/j-haj/bdl/task"
 )
-
-type TaskID string
 
 type taskNode struct {
 	next *taskNode
-	id TaskID
+	id task.TaskID
 	data *pbTask.Task
 }
 
@@ -24,28 +23,28 @@ type TaskQueue struct {
 }
 
 // Push adds a task to the back of the queue.
-func (q *TaskQueue) Push(task *pbTask.Task) {
+func (q *TaskQueue) Push(t *pbTask.Task) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	t := &taskNode{nil, TaskID(task.GetTaskId()), task}
+	tn := &taskNode{nil, task.TaskID(t.GetTaskId()), t}
 	if q.head == nil && q.tail == nil {
-		q.head = t
+		q.head = tn
 		q.tail = q.head
 	} else {
-		q.tail.next = t
-		q.tail = t;
+		q.tail.next = tn
+		q.tail = tn;
 	}
 	q.size++
 }
 
 // PushFront adds a task to the front of the queue.
-func (q *TaskQueue) PushFront(task *pbTask.Task) {
+func (q *TaskQueue) PushFront(t *pbTask.Task) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	t := &taskNode{q.head, TaskID(task.GetTaskId()), task}
-	q.head = t
+	tn := &taskNode{q.head, task.TaskID(t.GetTaskId()), t}
+	q.head = tn
 	if q.tail == nil {
-		q.tail = t
+		q.tail = tn
 	}
 
 	q.size++
@@ -56,17 +55,17 @@ func (q *TaskQueue) Pop() (*pbTask.Task, error) {
 	q.mu.Lock()
 	q.mu.Unlock()
 	if q.size == 0 {
-		return nil, fmt.Errorf("cannot pop from an empty queue")
+		return nil, errors.New("cannot pop from an empty queue")
 	}
-	task := q.head
+	t := q.head
 	q.head = q.head.next
 	q.size--
-	return task.data, nil
+	return t.data, nil
 }
 
 // Remove removes the task from the queue. If the task is not in the queue the method exits
 // without error.
-func (q *TaskQueue) Remove(taskId TaskID) {
+func (q *TaskQueue) Remove(taskId task.TaskID) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 

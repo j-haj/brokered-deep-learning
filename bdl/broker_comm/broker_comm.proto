@@ -33,9 +33,7 @@ message ConnectionRequest {
   string broker_id = 1;
 }
 
-message ConnectionResponse {
-  bool ok = 1;
-}
+message ConnectionResponse {}
 
 message DisconnectRequest {}
 message DisconnectResponse {}
@@ -44,7 +42,7 @@ message ProcessResponse {}
 message ShareRequest {
   string originator_id = 1;
   string originator_address = 2;
-  task_service.Task task = 3;
+  task_service.Task task_proto = 3;
 }
 
 message ShareResponse {

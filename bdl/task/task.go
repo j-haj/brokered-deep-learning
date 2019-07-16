@@ -7,6 +7,6 @@ import (
 type TaskID string
 
 type Task struct {
-	id TaskID
-	task *pb.Task
+	Id TaskID
+	TaskProto *pb.Task
 }

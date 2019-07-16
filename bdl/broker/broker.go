@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+	"sync"
 	"time"
 	
 
@@ -16,7 +19,8 @@ import (
 	pbHB "github.com/j-haj/bdl/heartbeat"
 	pbNS "github.com/j-haj/bdl/nameservice"
 	pbResult "github.com/j-haj/bdl/result"
-	pbTask "github.com/j-haj/bdl/task"
+	pbTask "github.com/j-haj/bdl/task_service"
+	task "github.com/j-haj/bdl/task"
 	taskQ "github.com/j-haj/bdl/task_queue"
 
 )
@@ -35,23 +39,37 @@ var (
 )
 
 // taskID is a combination of task source and task ID  - <task source>:<task id>.
-type taskID string
 type brokerID string
 type modelAddress string
 
-type task struct {
-	id taskID
+type ownedTask struct {
 	owner brokerID
-	taskProto *pbTask.Task
+	taskData task.Task
 }
 
-func newTask(owner brokerID, t *pbTask.Task) task {
-	return task{buildTaskID(t), owner, t}
+func newTask(owner brokerID, t *pbTask.Task) ownedTask {
+	return ownedTask{owner, task.Task{task.TaskID(t.GetTaskId()), t}}
 }
 
 type brokerConnection struct {
 	hbClient pbHB.HeartbeatClient
+	brokerClient pbBroker.InterBrokerCommClient
 	isAvailable bool
+}
+
+func newBrokerConnection(address string) (brokerConnection, error) {
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return brokerConnection{}, fmt.Errorf("failed to establish broker connection - %v", err)
+	}
+	brokerClient := pbBroker.NewInterBrokerCommClient(conn)
+	hbClient := pbHB.NewHeartbeatClient(conn)
+
+	return brokerConnection{
+		hbClient: hbClient,
+		brokerClient: brokerClient,
+		isAvailable: true,
+	}, nil
 }
 
 type modelClient struct {
@@ -64,8 +82,10 @@ type broker struct {
 	timeoutBuffer float64
 	// brokerID is the ID given to this broker from the nameserver
 	brokerId brokerID
-	// nsClient handles heartbeats with the nameserver
+	// nsClient handles interactions with the nameserver
 	nsClient pbNS.BrokerNameServiceClient
+	// hbClient handles heartbeats with the nameserver
+	hbClient pbHB.HeartbeatClient
 	// modelClients store the clients to send results back to known models
 	modelClients map[modelAddress]modelClient
 	// linkedBrokers are brokers that have an established link with this broker
@@ -76,21 +96,23 @@ type broker struct {
 	heartbeats map[brokerID]time.Time
 	// associatedTasks is a map from brokerID to taskID. This is used for dqueueing and
 	// requeueing tasks.
-	associatedTasks map[brokerID][]taskID
+	associatedTasks map[brokerID][]task.TaskID
 	// ownedTasks are tasks sent to this broker from a model
-	ownedTasks map[taskID]task
+	ownedTasks map[task.TaskID]ownedTask
 	// queuedTasks are tasks waiting to be sent to an available worker
 	queuedTasks taskQ.TaskQueue
 	// borrowedTasks are tasks that have been sent from another broker
-	borrowedTasks map[taskID]task
+	borrowedTasks map[task.TaskID]ownedTask
 	// sharedTasks are tasks owned by this broker but sent to another broker
-	sharedTasks map[taskID]brokerID
+	sharedTasks map[task.TaskID]brokerID
 	// processingTasks are tasks currently being processed by a worker. If a task comes back
 	// and is not in the processingTasks map the result should be dropped.
-	processingTasks map[taskID]task
+	processingTasks map[task.TaskID]ownedTask
 
 	// maxBorrowedCapacity is the number of shared tasks the broker is willing to accept
 	maxBorrowedCapacity int
+
+	mu sync.Mutex
 }
 
 func NewBroker(maxBorrowedCapacity int, types []string) (*broker, error) {
@@ -132,8 +154,8 @@ func (b *broker) registerWithNameserver() error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Registration successful. Got ID: %d\n", resp.GetId())
-	b.brokerId = resp.GetId()
+	log.Debugf("Registration successful. Got ID: %s\n", resp.GetId())
+	b.brokerId = brokerID(resp.GetId())
 	return nil
 }
 
@@ -147,7 +169,7 @@ func (b *broker) sendHeartbeat() {
 			"address": *brokerAddress,
 		}).Debug("Sending heartbeat.")
 		resp, err := b.hbClient.Heartbeat(ctx, &pbHB.HeartbeatRequest{
-			Id: b.brokerId,
+			Id: string(b.brokerId),
 			Address: *brokerAddress,
 		})
 		if err != nil {
@@ -178,7 +200,7 @@ func (b *broker) sendHeartbeat() {
 func (b *broker) checkHeartbeats() {
 	for _ = range time.Tick(time.Duration(*connectionTimeout) * time.Second) {
 		// Get timed out connections
-		deadConnection := []brokerID{}
+		deadConnections := []brokerID{}
 		for id, t := range b.heartbeats {
 			if time.Since(t).Seconds() > *connectionTimeout {
 				// Disconnect
@@ -210,15 +232,16 @@ func (b *broker) checkHeartbeats() {
 			tids := b.associatedTasks[id]
 			for _, tid := range tids {
 				// Remove from task queue
-				b.taskQ.Remove(tid)
+				b.queuedTasks.Remove(tid)
 
 				if _, ok := b.borrowedTasks[tid]; ok {
 					delete(b.borrowedTasks, tid)
-				} else if task, ok := b.sharedTasks[tid]; ok {
-					b.taskQ.PushFront(task.taskProto)
+				} else if _, ok := b.sharedTasks[tid]; ok {
+					t := b.processingTasks[tid]
+					b.queuedTasks.PushFront(t.taskData.TaskProto)
 					delete(b.sharedTasks, tid)
 				}
-				if _, ok := b.processingTasks; ok {
+				if _, ok := b.processingTasks[tid]; ok {
 					delete(b.processingTasks, tid)
 				}
 				
@@ -235,7 +258,7 @@ func (b *broker) Heartbeat(ctx context.Context, req *pbHB.HeartbeatRequest) (*pb
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	id := fmt.Sprintf("%s#%d", req.GetAddress(), req.GetId())
+	id := brokerID(fmt.Sprintf("%s#%d", req.GetAddress(), req.GetId()))
 	reregister := true
 	if _, ok := b.heartbeats[id]; ok {
 		reregister = false
@@ -253,33 +276,33 @@ func (b *broker) SendAvailability(ctx context.Context, req *pbBroker.Availabilit
 	id := brokerID(req.GetBrokerId())
 
 	// Update availability
-	if broker, ok := b.brokers[id]; ok {
+	if broker, ok := b.linkedBrokers[id]; ok {
 		broker.isAvailable = req.GetAvailable()
 		return &pbBroker.AvailabilityResponse{}, nil
 	}
-	return nil, fmt.Error("broker not recognized")
+	return nil, errors.New("broker not recognized")
 }
 
 // Connect is called by a broker to establish a link with another broker.
 func (b *broker) Connect(ctx context.Context, req *pbBroker.ConnectionRequest) (*pbBroker.ConnectionResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	id := brokerId(req.GetBrokerId())
+	id := brokerID(req.GetBrokerId())
 	address := strings.Split(req.GetBrokerId(), "#")[0]
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+
+	c, err := newBrokerConnection(address)
 	if err != nil {
-		return nil, fmt.Errorf("failed to establish broker connection - %v", err)
+		return nil, err
 	}
-	c := pbBroker.NewInterBrokerCommClient(conn)
 	b.linkedBrokers[id] = c
 	b.heartbeats[id] = time.Now()
 	
-	return nil, fmt.Error("Not implemented")
+	return &pbBroker.ConnectionResponse{}, nil
 }
 
 // Disconnect is called by a broker to destroy a link with another broker.
 func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest) (*pbBroker.DisconnectResponse, error) {
-	return nil, fmt.Error("Not implemented")
+	return nil, errors.New("Not implemented")
 }
 
 // ShareTask is called when the broker is receiving a task from a linked broker. The linked
@@ -287,11 +310,12 @@ func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest
 func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pbBroker.ShareResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	taskId := req.GetTask().GetTaskId()
-	task := newTask(req.GetOriginatorId(), req.GetTask())
-	b.borrowedTasks[taskId] = task
-	b.associatedTasks[req.GetOriginatorId()] = taskId
-	return nil, fmt.Error("Not implemented")
+	taskId := task.TaskID(req.GetTaskProto().GetTaskId())
+	bid := brokerID(req.GetOriginatorId())
+	t := newTask(bid, req.GetTaskProto())
+	b.borrowedTasks[taskId] = t
+	b.associatedTasks[bid] = append(b.associatedTasks[bid], taskId)
+	return &pbBroker.ShareResponse{Ok: true}, nil
 }
 
 // ProcessResult is used to send a shared task back to the owning broker.
@@ -299,7 +323,7 @@ func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBr
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	
-	if c, ok := b.modelClients[req.GetDestination()]; ok {
+	if c, ok := b.modelClients[modelAddress(req.GetDestination())]; ok {
 		_, err := c.ReportResult(req)
 		if err != nil {
 			log.WithFields(log.Fields{
