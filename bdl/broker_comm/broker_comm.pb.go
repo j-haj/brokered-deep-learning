@@ -3,15 +3,16 @@
 
 package broker_comm
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import result "github.com/j-haj/bdl/result"
-import task "github.com/j-haj/bdl/task"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	result "github.com/j-haj/bdl/result"
+	task "github.com/j-haj/bdl/task"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -23,11 +24,11 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type AvailabilityInfo struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
-	Available            bool     `protobuf:"varint,2,opt,name=available" json:"available,omitempty"`
+	BrokerId             string   `protobuf:"bytes,1,opt,name=broker_id,json=brokerId,proto3" json:"broker_id,omitempty"`
+	Available            bool     `protobuf:"varint,2,opt,name=available,proto3" json:"available,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -37,16 +38,17 @@ func (m *AvailabilityInfo) Reset()         { *m = AvailabilityInfo{} }
 func (m *AvailabilityInfo) String() string { return proto.CompactTextString(m) }
 func (*AvailabilityInfo) ProtoMessage()    {}
 func (*AvailabilityInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{0}
+	return fileDescriptor_3b1e38cf03a0803c, []int{0}
 }
+
 func (m *AvailabilityInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AvailabilityInfo.Unmarshal(m, b)
 }
 func (m *AvailabilityInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AvailabilityInfo.Marshal(b, m, deterministic)
 }
-func (dst *AvailabilityInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AvailabilityInfo.Merge(dst, src)
+func (m *AvailabilityInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AvailabilityInfo.Merge(m, src)
 }
 func (m *AvailabilityInfo) XXX_Size() int {
 	return xxx_messageInfo_AvailabilityInfo.Size(m)
@@ -57,9 +59,9 @@ func (m *AvailabilityInfo) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AvailabilityInfo proto.InternalMessageInfo
 
-func (m *AvailabilityInfo) GetAddress() string {
+func (m *AvailabilityInfo) GetBrokerId() string {
 	if m != nil {
-		return m.Address
+		return m.BrokerId
 	}
 	return ""
 }
@@ -81,16 +83,17 @@ func (m *AvailabilityResponse) Reset()         { *m = AvailabilityResponse{} }
 func (m *AvailabilityResponse) String() string { return proto.CompactTextString(m) }
 func (*AvailabilityResponse) ProtoMessage()    {}
 func (*AvailabilityResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{1}
+	return fileDescriptor_3b1e38cf03a0803c, []int{1}
 }
+
 func (m *AvailabilityResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AvailabilityResponse.Unmarshal(m, b)
 }
 func (m *AvailabilityResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AvailabilityResponse.Marshal(b, m, deterministic)
 }
-func (dst *AvailabilityResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AvailabilityResponse.Merge(dst, src)
+func (m *AvailabilityResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AvailabilityResponse.Merge(m, src)
 }
 func (m *AvailabilityResponse) XXX_Size() int {
 	return xxx_messageInfo_AvailabilityResponse.Size(m)
@@ -102,7 +105,7 @@ func (m *AvailabilityResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_AvailabilityResponse proto.InternalMessageInfo
 
 type ConnectionRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	BrokerId             string   `protobuf:"bytes,1,opt,name=broker_id,json=brokerId,proto3" json:"broker_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -112,16 +115,17 @@ func (m *ConnectionRequest) Reset()         { *m = ConnectionRequest{} }
 func (m *ConnectionRequest) String() string { return proto.CompactTextString(m) }
 func (*ConnectionRequest) ProtoMessage()    {}
 func (*ConnectionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{2}
+	return fileDescriptor_3b1e38cf03a0803c, []int{2}
 }
+
 func (m *ConnectionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectionRequest.Unmarshal(m, b)
 }
 func (m *ConnectionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConnectionRequest.Marshal(b, m, deterministic)
 }
-func (dst *ConnectionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConnectionRequest.Merge(dst, src)
+func (m *ConnectionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectionRequest.Merge(m, src)
 }
 func (m *ConnectionRequest) XXX_Size() int {
 	return xxx_messageInfo_ConnectionRequest.Size(m)
@@ -132,15 +136,15 @@ func (m *ConnectionRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConnectionRequest proto.InternalMessageInfo
 
-func (m *ConnectionRequest) GetAddress() string {
+func (m *ConnectionRequest) GetBrokerId() string {
 	if m != nil {
-		return m.Address
+		return m.BrokerId
 	}
 	return ""
 }
 
 type ConnectionResponse struct {
-	Ok                   bool     `protobuf:"varint,1,opt,name=ok" json:"ok,omitempty"`
+	Ok                   bool     `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -150,16 +154,17 @@ func (m *ConnectionResponse) Reset()         { *m = ConnectionResponse{} }
 func (m *ConnectionResponse) String() string { return proto.CompactTextString(m) }
 func (*ConnectionResponse) ProtoMessage()    {}
 func (*ConnectionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{3}
+	return fileDescriptor_3b1e38cf03a0803c, []int{3}
 }
+
 func (m *ConnectionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ConnectionResponse.Unmarshal(m, b)
 }
 func (m *ConnectionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ConnectionResponse.Marshal(b, m, deterministic)
 }
-func (dst *ConnectionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConnectionResponse.Merge(dst, src)
+func (m *ConnectionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectionResponse.Merge(m, src)
 }
 func (m *ConnectionResponse) XXX_Size() int {
 	return xxx_messageInfo_ConnectionResponse.Size(m)
@@ -187,16 +192,17 @@ func (m *DisconnectRequest) Reset()         { *m = DisconnectRequest{} }
 func (m *DisconnectRequest) String() string { return proto.CompactTextString(m) }
 func (*DisconnectRequest) ProtoMessage()    {}
 func (*DisconnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{4}
+	return fileDescriptor_3b1e38cf03a0803c, []int{4}
 }
+
 func (m *DisconnectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectRequest.Unmarshal(m, b)
 }
 func (m *DisconnectRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DisconnectRequest.Marshal(b, m, deterministic)
 }
-func (dst *DisconnectRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DisconnectRequest.Merge(dst, src)
+func (m *DisconnectRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DisconnectRequest.Merge(m, src)
 }
 func (m *DisconnectRequest) XXX_Size() int {
 	return xxx_messageInfo_DisconnectRequest.Size(m)
@@ -217,16 +223,17 @@ func (m *DisconnectResponse) Reset()         { *m = DisconnectResponse{} }
 func (m *DisconnectResponse) String() string { return proto.CompactTextString(m) }
 func (*DisconnectResponse) ProtoMessage()    {}
 func (*DisconnectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{5}
+	return fileDescriptor_3b1e38cf03a0803c, []int{5}
 }
+
 func (m *DisconnectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DisconnectResponse.Unmarshal(m, b)
 }
 func (m *DisconnectResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_DisconnectResponse.Marshal(b, m, deterministic)
 }
-func (dst *DisconnectResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DisconnectResponse.Merge(dst, src)
+func (m *DisconnectResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DisconnectResponse.Merge(m, src)
 }
 func (m *DisconnectResponse) XXX_Size() int {
 	return xxx_messageInfo_DisconnectResponse.Size(m)
@@ -247,16 +254,17 @@ func (m *ProcessResponse) Reset()         { *m = ProcessResponse{} }
 func (m *ProcessResponse) String() string { return proto.CompactTextString(m) }
 func (*ProcessResponse) ProtoMessage()    {}
 func (*ProcessResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{6}
+	return fileDescriptor_3b1e38cf03a0803c, []int{6}
 }
+
 func (m *ProcessResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProcessResponse.Unmarshal(m, b)
 }
 func (m *ProcessResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ProcessResponse.Marshal(b, m, deterministic)
 }
-func (dst *ProcessResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProcessResponse.Merge(dst, src)
+func (m *ProcessResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProcessResponse.Merge(m, src)
 }
 func (m *ProcessResponse) XXX_Size() int {
 	return xxx_messageInfo_ProcessResponse.Size(m)
@@ -268,9 +276,9 @@ func (m *ProcessResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_ProcessResponse proto.InternalMessageInfo
 
 type ShareRequest struct {
-	OriginatorId         int64      `protobuf:"varint,1,opt,name=originator_id,json=originatorId" json:"originator_id,omitempty"`
-	OriginatorAddress    string     `protobuf:"bytes,2,opt,name=originator_address,json=originatorAddress" json:"originator_address,omitempty"`
-	Task                 *task.Task `protobuf:"bytes,3,opt,name=task" json:"task,omitempty"`
+	OriginatorId         string     `protobuf:"bytes,1,opt,name=originator_id,json=originatorId,proto3" json:"originator_id,omitempty"`
+	OriginatorAddress    string     `protobuf:"bytes,2,opt,name=originator_address,json=originatorAddress,proto3" json:"originator_address,omitempty"`
+	Task                 *task.Task `protobuf:"bytes,3,opt,name=task,proto3" json:"task,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -280,16 +288,17 @@ func (m *ShareRequest) Reset()         { *m = ShareRequest{} }
 func (m *ShareRequest) String() string { return proto.CompactTextString(m) }
 func (*ShareRequest) ProtoMessage()    {}
 func (*ShareRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{7}
+	return fileDescriptor_3b1e38cf03a0803c, []int{7}
 }
+
 func (m *ShareRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShareRequest.Unmarshal(m, b)
 }
 func (m *ShareRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShareRequest.Marshal(b, m, deterministic)
 }
-func (dst *ShareRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShareRequest.Merge(dst, src)
+func (m *ShareRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShareRequest.Merge(m, src)
 }
 func (m *ShareRequest) XXX_Size() int {
 	return xxx_messageInfo_ShareRequest.Size(m)
@@ -300,11 +309,11 @@ func (m *ShareRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ShareRequest proto.InternalMessageInfo
 
-func (m *ShareRequest) GetOriginatorId() int64 {
+func (m *ShareRequest) GetOriginatorId() string {
 	if m != nil {
 		return m.OriginatorId
 	}
-	return 0
+	return ""
 }
 
 func (m *ShareRequest) GetOriginatorAddress() string {
@@ -322,7 +331,7 @@ func (m *ShareRequest) GetTask() *task.Task {
 }
 
 type ShareResponse struct {
-	Ok                   bool     `protobuf:"varint,1,opt,name=ok" json:"ok,omitempty"`
+	Ok                   bool     `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -332,16 +341,17 @@ func (m *ShareResponse) Reset()         { *m = ShareResponse{} }
 func (m *ShareResponse) String() string { return proto.CompactTextString(m) }
 func (*ShareResponse) ProtoMessage()    {}
 func (*ShareResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_broker_comm_604978bab0384fec, []int{8}
+	return fileDescriptor_3b1e38cf03a0803c, []int{8}
 }
+
 func (m *ShareResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShareResponse.Unmarshal(m, b)
 }
 func (m *ShareResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ShareResponse.Marshal(b, m, deterministic)
 }
-func (dst *ShareResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShareResponse.Merge(dst, src)
+func (m *ShareResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShareResponse.Merge(m, src)
 }
 func (m *ShareResponse) XXX_Size() int {
 	return xxx_messageInfo_ShareResponse.Size(m)
@@ -369,6 +379,38 @@ func init() {
 	proto.RegisterType((*ProcessResponse)(nil), "ProcessResponse")
 	proto.RegisterType((*ShareRequest)(nil), "ShareRequest")
 	proto.RegisterType((*ShareResponse)(nil), "ShareResponse")
+}
+
+func init() { proto.RegisterFile("broker_comm/broker_comm.proto", fileDescriptor_3b1e38cf03a0803c) }
+
+var fileDescriptor_3b1e38cf03a0803c = []byte{
+	// 411 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0x51, 0x6f, 0xd3, 0x30,
+	0x10, 0xc7, 0x93, 0x80, 0xa0, 0x39, 0x96, 0xae, 0xb9, 0x0c, 0x54, 0x05, 0xd0, 0x2a, 0x83, 0x50,
+	0x1f, 0xc0, 0x45, 0x1b, 0x12, 0x6f, 0x48, 0x63, 0xbc, 0xe4, 0x01, 0x09, 0x65, 0xbc, 0x4f, 0x6e,
+	0x62, 0xc0, 0x4a, 0x62, 0x0f, 0xdb, 0x9d, 0xc4, 0x57, 0xe0, 0x6b, 0xf0, 0x45, 0xd1, 0xe2, 0x40,
+	0xbc, 0xb6, 0xda, 0x53, 0xe2, 0xff, 0x9d, 0xcf, 0x77, 0xff, 0xdf, 0xc1, 0xf3, 0xb5, 0x56, 0x0d,
+	0xd7, 0x97, 0x95, 0xea, 0xba, 0x95, 0xf7, 0x4f, 0xaf, 0xb4, 0xb2, 0x2a, 0xcf, 0x34, 0x37, 0x9b,
+	0xd6, 0xae, 0xdc, 0x67, 0x10, 0x8f, 0x2d, 0x33, 0xcd, 0xa5, 0xe1, 0xfa, 0x5a, 0x54, 0x7c, 0xe5,
+	0x1f, 0x5c, 0x02, 0xf9, 0x0c, 0xb3, 0xb3, 0x6b, 0x26, 0x5a, 0xb6, 0x16, 0xad, 0xb0, 0xbf, 0x0a,
+	0xf9, 0x4d, 0xe1, 0x53, 0x88, 0x87, 0xf2, 0xa2, 0x9e, 0x87, 0x8b, 0x70, 0x19, 0x97, 0x13, 0x27,
+	0x14, 0x35, 0x3e, 0x83, 0x98, 0xb9, 0x0b, 0x2d, 0x9f, 0x47, 0x8b, 0x70, 0x39, 0x29, 0x47, 0x81,
+	0x3c, 0x81, 0x23, 0xbf, 0x5c, 0xc9, 0xcd, 0x95, 0x92, 0x86, 0x93, 0xb7, 0x90, 0x9e, 0x2b, 0x29,
+	0x79, 0x65, 0x85, 0x92, 0x25, 0xff, 0xb9, 0xe1, 0xc6, 0xde, 0xf9, 0x0e, 0x79, 0x09, 0xe8, 0xdf,
+	0x70, 0x75, 0x70, 0x0a, 0x91, 0x6a, 0xfa, 0xdc, 0x49, 0x19, 0xa9, 0x86, 0x64, 0x90, 0x7e, 0x12,
+	0xa6, 0x72, 0x89, 0x43, 0x5d, 0x72, 0x04, 0xe8, 0x8b, 0x43, 0x0b, 0x29, 0x1c, 0x7e, 0xd1, 0xaa,
+	0xe2, 0xc6, 0xfc, 0x97, 0x7e, 0x87, 0x70, 0x70, 0xf1, 0x83, 0x69, 0xfe, 0xaf, 0xa3, 0x17, 0x90,
+	0x28, 0x2d, 0xbe, 0x0b, 0xc9, 0xac, 0xf2, 0xba, 0x3a, 0x18, 0xc5, 0xa2, 0xc6, 0x37, 0x80, 0x5e,
+	0x12, 0xab, 0x6b, 0xcd, 0x8d, 0xe9, 0xad, 0x88, 0xcb, 0x74, 0x8c, 0x9c, 0xb9, 0x00, 0xbe, 0x82,
+	0xfb, 0x37, 0xbe, 0xcf, 0xef, 0x2d, 0xc2, 0xe5, 0xa3, 0x13, 0xa4, 0xb7, 0x20, 0x7c, 0x65, 0xa6,
+	0x29, 0xfb, 0x38, 0x39, 0x86, 0x64, 0xe8, 0x65, 0xff, 0xac, 0x27, 0x7f, 0x22, 0x38, 0x2c, 0xa4,
+	0xe5, 0xfa, 0x63, 0xef, 0xd1, 0xb9, 0xea, 0x3a, 0xfc, 0x00, 0xb3, 0x0b, 0x2e, 0x6b, 0xdf, 0x73,
+	0x4c, 0xe9, 0x36, 0xd1, 0xfc, 0x31, 0xdd, 0x4b, 0x25, 0xc0, 0x77, 0xf0, 0x70, 0x70, 0x19, 0x91,
+	0xee, 0x10, 0xca, 0x33, 0xba, 0xcb, 0x80, 0x04, 0xf8, 0x1e, 0x60, 0x34, 0x18, 0x91, 0xee, 0x20,
+	0xc8, 0x33, 0xba, 0x87, 0x40, 0x80, 0xaf, 0x21, 0xee, 0x67, 0xbc, 0x19, 0x1b, 0x13, 0xea, 0x7b,
+	0x9f, 0x4f, 0xe9, 0xad, 0xf1, 0x49, 0x80, 0xa7, 0x90, 0x8c, 0xc4, 0x36, 0xad, 0xc5, 0x29, 0x1d,
+	0x96, 0xdb, 0x9d, 0xf3, 0x19, 0xdd, 0x26, 0x1a, 0xac, 0x1f, 0xf4, 0x7b, 0x7d, 0xfa, 0x37, 0x00,
+	0x00, 0xff, 0xff, 0x23, 0xea, 0x70, 0xd9, 0x2e, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -466,6 +508,26 @@ type InterBrokerCommServer interface {
 	// ProcessResult either sends the result to the model or sends the result on to the
 	// next broker.
 	ProcessResult(context.Context, *result.Result) (*ProcessResponse, error)
+}
+
+// UnimplementedInterBrokerCommServer can be embedded to have forward compatible implementations.
+type UnimplementedInterBrokerCommServer struct {
+}
+
+func (*UnimplementedInterBrokerCommServer) SendAvailability(ctx context.Context, req *AvailabilityInfo) (*AvailabilityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendAvailability not implemented")
+}
+func (*UnimplementedInterBrokerCommServer) Connect(ctx context.Context, req *ConnectionRequest) (*ConnectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (*UnimplementedInterBrokerCommServer) Disconnect(ctx context.Context, req *DisconnectRequest) (*DisconnectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Disconnect not implemented")
+}
+func (*UnimplementedInterBrokerCommServer) ShareTask(ctx context.Context, req *ShareRequest) (*ShareResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShareTask not implemented")
+}
+func (*UnimplementedInterBrokerCommServer) ProcessResult(ctx context.Context, req *result.Result) (*ProcessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessResult not implemented")
 }
 
 func RegisterInterBrokerCommServer(s *grpc.Server, srv InterBrokerCommServer) {
@@ -589,38 +651,4 @@ var _InterBrokerComm_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "broker_comm/broker_comm.proto",
-}
-
-func init() {
-	proto.RegisterFile("broker_comm/broker_comm.proto", fileDescriptor_broker_comm_604978bab0384fec)
-}
-
-var fileDescriptor_broker_comm_604978bab0384fec = []byte{
-	// 402 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0xcd, 0x8e, 0xd3, 0x30,
-	0x14, 0x85, 0x93, 0x0c, 0x62, 0xa6, 0x97, 0x49, 0xdb, 0xdc, 0x0c, 0x28, 0x8a, 0xf8, 0xa9, 0x0c,
-	0x8b, 0x2e, 0x18, 0x57, 0x9a, 0x41, 0x62, 0x87, 0x54, 0xca, 0xa6, 0xac, 0x50, 0xca, 0xbe, 0x72,
-	0x13, 0x03, 0x56, 0x12, 0xbb, 0xd8, 0x2e, 0x12, 0x5b, 0x5e, 0x85, 0x17, 0x45, 0x75, 0x52, 0x12,
-	0xda, 0xb2, 0x49, 0xe2, 0x93, 0xa3, 0xfb, 0xf3, 0x1d, 0xc3, 0xb3, 0x8d, 0x56, 0x25, 0xd7, 0xeb,
-	0x5c, 0xd5, 0xf5, 0xac, 0xf7, 0x4d, 0xb7, 0x5a, 0x59, 0x95, 0xc6, 0x9a, 0x9b, 0x5d, 0x65, 0x67,
-	0xcd, 0xab, 0x15, 0x47, 0x96, 0x99, 0x72, 0xb6, 0x7f, 0x34, 0x02, 0xf9, 0x08, 0xe3, 0xf9, 0x0f,
-	0x26, 0x2a, 0xb6, 0x11, 0x95, 0xb0, 0x3f, 0x97, 0xf2, 0x8b, 0xc2, 0x04, 0x2e, 0x59, 0x51, 0x68,
-	0x6e, 0x4c, 0xe2, 0x4f, 0xfc, 0xe9, 0x20, 0x3b, 0x1c, 0xf1, 0x29, 0x0c, 0x58, 0xe3, 0xae, 0x78,
-	0x12, 0x4c, 0xfc, 0xe9, 0x55, 0xd6, 0x09, 0xe4, 0x09, 0xdc, 0xf4, 0x6b, 0x65, 0xdc, 0x6c, 0x95,
-	0x34, 0x9c, 0xdc, 0x42, 0xb4, 0x50, 0x52, 0xf2, 0xdc, 0x0a, 0x25, 0x33, 0xfe, 0x7d, 0xc7, 0x8d,
-	0xfd, 0x7f, 0x13, 0xf2, 0x0a, 0xb0, 0x6f, 0x6f, 0x8a, 0xe0, 0x10, 0x02, 0x55, 0x3a, 0xeb, 0x55,
-	0x16, 0xa8, 0x92, 0xc4, 0x10, 0x7d, 0x10, 0x26, 0x6f, 0x8c, 0x6d, 0x51, 0x72, 0x03, 0xd8, 0x17,
-	0xdb, 0xfe, 0x11, 0x8c, 0x3e, 0x69, 0x95, 0x73, 0x63, 0xfe, 0x4a, 0xbf, 0x7c, 0xb8, 0x5e, 0x7d,
-	0x63, 0x9a, 0x1f, 0xc6, 0x79, 0x09, 0xa1, 0xd2, 0xe2, 0xab, 0x90, 0xcc, 0x2a, 0xbd, 0x16, 0x85,
-	0xeb, 0x74, 0x91, 0x5d, 0x77, 0xe2, 0xb2, 0xc0, 0x5b, 0xc0, 0x9e, 0xe9, 0x30, 0x7e, 0xe0, 0xc6,
-	0x8f, 0xba, 0x3f, 0xf3, 0x96, 0xd6, 0x73, 0x78, 0xb0, 0x27, 0x9d, 0x5c, 0x4c, 0xfc, 0xe9, 0xa3,
-	0x3b, 0xa0, 0x0e, 0xfb, 0x67, 0x66, 0xca, 0xcc, 0xe9, 0xe4, 0x05, 0x84, 0xed, 0x0c, 0xe7, 0x77,
-	0xbc, 0xfb, 0x1d, 0xc0, 0x68, 0x29, 0x2d, 0xd7, 0xef, 0x5d, 0xba, 0x0b, 0x55, 0xd7, 0xf8, 0x0e,
-	0xc6, 0x2b, 0x2e, 0x8b, 0x3e, 0x68, 0x8c, 0xe8, 0x71, 0x86, 0xe9, 0x63, 0x7a, 0x36, 0x0a, 0x0f,
-	0xdf, 0xc0, 0x65, 0x4b, 0x17, 0x91, 0x9e, 0xc4, 0x92, 0xc6, 0xf4, 0x94, 0x3d, 0xf1, 0xf0, 0x2d,
-	0x40, 0x07, 0x16, 0x91, 0x9e, 0xa0, 0x4f, 0x63, 0x7a, 0x86, 0xbc, 0x87, 0xaf, 0x61, 0xe0, 0x76,
-	0xdc, 0xaf, 0x8d, 0x21, 0xed, 0x33, 0x4f, 0x87, 0xf4, 0x9f, 0xf5, 0x89, 0x87, 0xf7, 0x10, 0x76,
-	0x49, 0xed, 0x2a, 0x8b, 0x43, 0xda, 0x5e, 0xdf, 0xe6, 0x9c, 0x8e, 0xe9, 0x71, 0x92, 0xde, 0xe6,
-	0xa1, 0xbb, 0xc9, 0xf7, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x36, 0x87, 0x6a, 0x2f, 0x10, 0x03,
-	0x00, 0x00,
 }

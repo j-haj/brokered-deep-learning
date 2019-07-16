@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 import "result/result.proto";
-import "task/task.proto";
+import "task_service/task_service.proto";
 
 service InterBrokerComm {
   // SendAvailability communicates a brokers availability for additional tasks.
@@ -44,7 +44,7 @@ message ProcessResponse {}
 message ShareRequest {
   string originator_id = 1;
   string originator_address = 2;
-  task.Task task = 3;
+  task_service.Task task = 3;
 }
 
 message ShareResponse {
