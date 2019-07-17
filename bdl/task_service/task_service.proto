@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package task_service;
+
+option go_package = "github.com/j-haj/bdl/task_service";
+
+import "result/result.proto";
+
+service TaskService {
+  rpc RequestTask(TaskRequest) returns (Task) {}
+  rpc SendResult(result.Result) returns (ResultResponse) {}
+}
+
+message Task {
+  string task_id = 1;
+  string source = 2;
+  bytes task_obj = 3;
+}
+
+message TaskRequest {}
+message ResultResponse {}

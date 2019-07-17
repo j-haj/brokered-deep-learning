@@ -1,35 +1,53 @@
 package task_queue
 
 import (
-	pbTask "github.com/j-haj/bdl/task"
+	"errors"
 	"sync"
+	
+	pbTask "github.com/j-haj/bdl/task_service"
+	task "github.com/j-haj/bdl/task"
 )
 
 type taskNode struct {
 	next *taskNode
-	data pbTask.Task
+	id task.TaskID
+	data *pbTask.Task
 }
 
 // FIFO queue implemented with a singly linked list
 type TaskQueue struct {
 	head *taskNode
 	tail *taskNode
-	size UInt
+	size int
 	mu   sync.Mutex
 }
 
 // Push adds a task to the back of the queue.
-func (q *TaskQueue) Push(task *pbTask.Task) {
+func (q *TaskQueue) Push(t *pbTask.Task) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-
-	if head == nil && tail == nil {
-		head = &taskNode{nil, task}
-		tail = head
+	tn := &taskNode{nil, task.TaskID(t.GetTaskId()), t}
+	if q.head == nil && q.tail == nil {
+		q.head = tn
+		q.tail = q.head
 	} else {
-		tail.next = &taskNode{nil, task}
+		q.tail.next = tn
+		q.tail = tn;
 	}
-	size++
+	q.size++
+}
+
+// PushFront adds a task to the front of the queue.
+func (q *TaskQueue) PushFront(t *pbTask.Task) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	tn := &taskNode{q.head, task.TaskID(t.GetTaskId()), t}
+	q.head = tn
+	if q.tail == nil {
+		q.tail = tn
+	}
+
+	q.size++
 }
 
 // Pop returns the task at the front of the queue or an error if the queue is empty.
@@ -37,18 +55,47 @@ func (q *TaskQueue) Pop() (*pbTask.Task, error) {
 	q.mu.Lock()
 	q.mu.Unlock()
 	if q.size == 0 {
-		return nil, fmt.Errorf("cannot pop from an empty queue")
+		return nil, errors.New("cannot pop from an empty queue")
 	}
-	task := q.head
-	task.next = nil
+	t := q.head
 	q.head = q.head.next
-	return task.data, nil
+	q.size--
+	return t.data, nil
 }
 
-func (q *TaskQueue) isEmpty() bool {
+// Remove removes the task from the queue. If the task is not in the queue the method exits
+// without error.
+func (q *TaskQueue) Remove(taskId task.TaskID) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.head == nil {
+		return
+	} else if q.head.id == taskId {
+		if q.tail == q.head {
+			q.tail = q.head.next
+		}
+		q.head = q.head.next
+	} else {
+		x := q.head
+		y := x
+		for x != nil && x.id != taskId {
+			y = x
+			x = x.next
+		}
+		if x == nil {
+			return
+		}
+
+		y.next = x.next
+	}
+	q.size--	
+}
+
+func (q *TaskQueue) Empty() bool {
 	return q.size == 0
 }
 
-func (q *TaskQueue) Size() UInt {
+func (q *TaskQueue) Size() int {
 	return q.size
 }
