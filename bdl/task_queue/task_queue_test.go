@@ -1,11 +1,11 @@
-package task_queue;
+package task_queue
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	pb "github.com/j-haj/bdl/task"
+	"github.com/stretchr/testify/assert"
 )
 
 var emptyTask = &pb.Task{TaskId: "localhost:10000#0", Source: "test"}
@@ -57,7 +57,7 @@ func TestPop(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, task, emptyTask, "they should be equal")
-}	
+}
 
 func TestSize(t *testing.T) {
 	q := &TaskQueue{}
@@ -91,12 +91,11 @@ func TestRemove(t *testing.T) {
 	// There is no 3 remaining in the queue, this should be idempotent
 	q.Remove(TaskID(buildTaskId(3)))
 	assert.Equal(t, q.Size(), 9, "they should be equal")
-	
+
 	for i := 0; i < 9; i++ {
 		v, err := q.Pop()
 		assert.NotEqual(t, v.GetTaskId(), buildTaskId(3), "they should not be equal")
 		assert.Nil(t, err)
 	}
-
 
 }

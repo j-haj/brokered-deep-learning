@@ -3,14 +3,14 @@ package task_queue
 import (
 	"errors"
 	"sync"
-	
-	pbTask "github.com/j-haj/bdl/task_service"
+
 	task "github.com/j-haj/bdl/task"
+	pbTask "github.com/j-haj/bdl/task_service"
 )
 
 type taskNode struct {
 	next *taskNode
-	id task.TaskID
+	id   task.TaskID
 	data *pbTask.Task
 }
 
@@ -32,7 +32,7 @@ func (q *TaskQueue) Push(t *pbTask.Task) {
 		q.tail = q.head
 	} else {
 		q.tail.next = tn
-		q.tail = tn;
+		q.tail = tn
 	}
 	q.size++
 }
@@ -89,7 +89,7 @@ func (q *TaskQueue) Remove(taskId task.TaskID) {
 
 		y.next = x.next
 	}
-	q.size--	
+	q.size--
 }
 
 func (q *TaskQueue) Empty() bool {

@@ -12,8 +12,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	pbNS "github.com/j-haj/bdl/nameservice"
 	pbHB "github.com/j-haj/bdl/heartbeat"
+	pbNS "github.com/j-haj/bdl/nameservice"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,7 +23,7 @@ var (
 	logFile           = flag.String("log_file", "", "Path to file used for logging.")
 	timeout           = flag.Int("timeout", 5, "Default timeout in seconds for RPCs.")
 	connectionTimeout = flag.Float64("connection_timeout", 120, "Time to wait in seconds befor removing a broker.")
-	hbCheckFrequency = flag.Int64("heartbeat_check_freq", 60, "Time in seconds between checking which broker connections have timed out.")
+	hbCheckFrequency  = flag.Int64("heartbeat_check_freq", 60, "Time in seconds between checking which broker connections have timed out.")
 )
 
 type broker struct {
@@ -55,11 +55,11 @@ type nameserver struct {
 // NewNameServer constructs a new nameserver.
 func NewNameServer() *nameserver {
 	return &nameserver{heartbeats: make(map[brokerID]time.Time),
-		brokers: make(map[brokerID]broker),
-		locations: make(map[string]map[brokerID]bool),
+		brokers:      make(map[brokerID]broker),
+		locations:    make(map[string]map[brokerID]bool),
 		nextBrokerID: 0,
 	}
-		
+
 }
 
 // Register a broker with the nameserver
@@ -101,7 +101,7 @@ func (ns *nameserver) Heartbeat(ctx context.Context, req *pbHB.HeartbeatRequest)
 		// Handle the case where we don't have a heartbeat record - this occurs when a broker
 		// has been dropped
 		log.WithFields(log.Fields{
-			"broker_id": id,
+			"broker_id":  id,
 			"nameserver": *nameserverAddress,
 		}).Debug("Unrecognized broker.")
 		return &pbHB.HeartbeatResponse{Reregister: true}, nil
@@ -117,7 +117,7 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 	if _, ok := ns.locations[location]; !ok {
 		log.WithFields(log.Fields{
 			"broker_address": req.GetAddress(),
-			"location": location,
+			"location":       location,
 		}).Error("Unknown location received from broker.")
 		return nil, fmt.Errorf("unknown location")
 	}
@@ -134,7 +134,7 @@ func (ns *nameserver) RequestBroker(ctx context.Context, req *pbNS.BrokerRequest
 }
 
 func (ns *nameserver) checkHeartbeats() {
-	for _ = range time.Tick(time.Duration(*hbCheckFrequency)*time.Second) {
+	for _ = range time.Tick(time.Duration(*hbCheckFrequency) * time.Second) {
 		ns.mu.Lock()
 		dead := []brokerID{}
 		// Find dead connections
