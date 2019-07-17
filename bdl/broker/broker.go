@@ -9,20 +9,18 @@ import (
 	"strings"
 	"sync"
 	"time"
-	
 
 	"google.golang.org/grpc"
 
 	log "github.com/sirupsen/logrus"
-	
+
 	pbBroker "github.com/j-haj/bdl/broker_comm"
 	pbHB "github.com/j-haj/bdl/heartbeat"
 	pbNS "github.com/j-haj/bdl/nameservice"
 	pbResult "github.com/j-haj/bdl/result"
-	pbTask "github.com/j-haj/bdl/task_service"
 	task "github.com/j-haj/bdl/task"
 	taskQ "github.com/j-haj/bdl/task_queue"
-
+	pbTask "github.com/j-haj/bdl/task_service"
 )
 
 var (
@@ -30,12 +28,14 @@ var (
 		"Address used by broker.")
 	nameserverAddress = flag.String("nameserver_address", "localhost:10000",
 		"Address of the nameserver.")
-	debug = flag.Bool("debug", false, "Enable debug logging.")
-	logFile = flag.String("log_file", "", "Path to file used for logging.")
-	timeout = flag.Int64("rpc_timeout", 1, "Timeout in seconds used for RPCs.")
+	debug             = flag.Bool("debug", false, "Enable debug logging.")
+	logFile           = flag.String("log_file", "", "Path to file used for logging.")
+	timeout           = flag.Int64("rpc_timeout", 1, "Timeout in seconds used for RPCs.")
 	connectionTimeout = flag.Float64("heartbeat_frequency", 100.0,
 		"Time to wait in between heartbeats in seconds.")
-	location = flag.String("location", "unknown", "Location of broker.")
+	location              = flag.String("location", "unknown", "Location of broker.")
+	nAttemptedConnections = flag.Int("n_attempted_connections", 1,
+		"The number of brokers this broker will attempt to connect to.")
 )
 
 // taskID is a combination of task source and task ID  - <task source>:<task id>.
@@ -43,7 +43,7 @@ type brokerID string
 type modelAddress string
 
 type ownedTask struct {
-	owner brokerID
+	owner    brokerID
 	taskData task.Task
 }
 
@@ -52,9 +52,9 @@ func newTask(owner brokerID, t *pbTask.Task) ownedTask {
 }
 
 type brokerConnection struct {
-	hbClient pbHB.HeartbeatClient
+	hbClient     pbHB.HeartbeatClient
 	brokerClient pbBroker.InterBrokerCommClient
-	isAvailable bool
+	isAvailable  bool
 }
 
 func newBrokerConnection(address string) (brokerConnection, error) {
@@ -66,9 +66,9 @@ func newBrokerConnection(address string) (brokerConnection, error) {
 	hbClient := pbHB.NewHeartbeatClient(conn)
 
 	return brokerConnection{
-		hbClient: hbClient,
+		hbClient:     hbClient,
 		brokerClient: brokerClient,
-		isAvailable: true,
+		isAvailable:  true,
 	}, nil
 }
 
@@ -115,18 +115,19 @@ type broker struct {
 	mu sync.Mutex
 }
 
+// NewBroker creates a new broker with a maximum borrow capactiy and allowed computation types.
 func NewBroker(maxBorrowedCapacity int, types []string) (*broker, error) {
 	conn, err := grpc.Dial(*nameserverAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, fmt.Errorf("failed to establish connection with nameserver - %v", err)
 	}
-	
+
 	b := &broker{
-		timeoutBuffer: .75,
-		brokerId: brokerID(0),
-		nsClient: pbNS.NewBrokerNameServiceClient(conn),
-		hbClient: pbHB.NewHeartbeatClient(conn),
-		types: types,
+		timeoutBuffer:       .75,
+		brokerId:            brokerID(0),
+		nsClient:            pbNS.NewBrokerNameServiceClient(conn),
+		hbClient:            pbHB.NewHeartbeatClient(conn),
+		types:               types,
 		maxBorrowedCapacity: maxBorrowedCapacity,
 	}
 
@@ -143,13 +144,13 @@ func (b *broker) registerWithNameserver() error {
 		"nameserver": nameserverAddress,
 	}).Debug("Registering with nameserver.")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
 	defer cancel()
 	resp, err := b.nsClient.Register(ctx,
 		&pbNS.RegistrationRequest{
-			Address: *brokerAddress,
+			Address:  *brokerAddress,
 			Location: *location,
-			Types: b.types,
+			Types:    b.types,
 		})
 	if err != nil {
 		return err
@@ -161,36 +162,36 @@ func (b *broker) registerWithNameserver() error {
 
 // sendHeartbeat sends heartbeat to nameserver and any connected brokers.
 func (b *broker) sendHeartbeat() {
-	for _ = range time.Tick(time.Duration(*connectionTimeout * b.timeoutBuffer) * time.Second) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+	for _ = range time.Tick(time.Duration(*connectionTimeout*b.timeoutBuffer) * time.Second) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
 		defer cancel()
 		log.WithFields(log.Fields{
-			"broker": b.brokerId,
+			"broker":  b.brokerId,
 			"address": *brokerAddress,
 		}).Debug("Sending heartbeat.")
 		resp, err := b.hbClient.Heartbeat(ctx, &pbHB.HeartbeatRequest{
-			Id: string(b.brokerId),
+			Id:      string(b.brokerId),
 			Address: *brokerAddress,
 		})
 		if err != nil {
 			log.WithFields(log.Fields{
-				"broker": b.brokerId,
+				"broker":     b.brokerId,
 				"nameserver": *nameserverAddress,
-				"error": err,
+				"error":      err,
 			}).Error("Encountered error with nameserver.")
 		}
 
 		if resp.GetReregister() {
 			log.WithFields(log.Fields{
-				"broker": b.brokerId,
+				"broker":     b.brokerId,
 				"nameserver": *nameserverAddress,
 			}).Debug("Received re-register request.")
 			err = b.registerWithNameserver()
 			if err != nil {
 				log.WithFields(log.Fields{
-					"broker": b.brokerId,
+					"broker":     b.brokerId,
 					"nameserver": *nameserverAddress,
-					"error": err,
+					"error":      err,
 				}).Error("Failed to re-register with nameserver.")
 			}
 		}
@@ -207,7 +208,7 @@ func (b *broker) checkHeartbeats() {
 				deadConnections = append(deadConnections, id)
 			}
 		}
-		
+
 		// Handle timed out connections
 		// 1. Remove broker from linked brokers
 		// 2. Remove from heartbeats
@@ -216,6 +217,7 @@ func (b *broker) checkHeartbeats() {
 		// 5. Remove borrowed tasks
 		// 6. Remove from shared task and put the the front of the task queue
 		// 7. Remove from processing tracking
+		b.mu.Lock()
 		for _, id := range deadConnections {
 			// 1. Remove heartbeat
 			delete(b.heartbeats, id)
@@ -224,7 +226,7 @@ func (b *broker) checkHeartbeats() {
 			delete(b.linkedBrokers, id)
 
 			// 3. Get associated task IDs
-			if tid, ok := b.associatedTasks[id]; !ok {
+			if _, ok := b.associatedTasks[id]; !ok {
 				// If there are no associated tasks with this broker
 				// we are done.
 				continue
@@ -244,13 +246,13 @@ func (b *broker) checkHeartbeats() {
 				if _, ok := b.processingTasks[tid]; ok {
 					delete(b.processingTasks, tid)
 				}
-				
+
 			}
-			if tids, ok := b.associatedTasks[id]; ok {
+			if _, ok := b.associatedTasks[id]; ok {
 				delete(b.associatedTasks, id)
 			}
 		}
-
+		b.mu.Unlock()
 	}
 }
 
@@ -264,14 +266,14 @@ func (b *broker) Heartbeat(ctx context.Context, req *pbHB.HeartbeatRequest) (*pb
 		reregister = false
 		b.heartbeats[id] = time.Now()
 	}
-	
+
 	return &pbHB.HeartbeatResponse{Reregister: reregister}, nil
 }
 
 func (b *broker) SendAvailability(ctx context.Context, req *pbBroker.AvailabilityInfo) (*pbBroker.AvailabilityResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	// Construct ID
 	id := brokerID(req.GetBrokerId())
 
@@ -296,7 +298,7 @@ func (b *broker) Connect(ctx context.Context, req *pbBroker.ConnectionRequest) (
 	}
 	b.linkedBrokers[id] = c
 	b.heartbeats[id] = time.Now()
-	
+
 	return &pbBroker.ConnectionResponse{}, nil
 }
 
@@ -322,22 +324,41 @@ func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pb
 func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBroker.ProcessResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
-	if c, ok := b.modelClients[modelAddress(req.GetDestination())]; ok {
-		_, err := c.ReportResult(req)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"task_id": req.GetTaskId(),
-				"destination": req.GetDestination(),
-				"error": err,
-			}).Error("Failed to report result to model.")
-		}
-		// Note if there is a failure we simply drop the result
-		// TODO: Do we really want to drop the result if there is an error?
+
+	// Check if this is a known task
+	tid := task.TaskID(req.GetTaskId())
+	if _, ok := b.ownedTasks[tid]; ok {
+		// This is a known task
+		log.WithFields(log.Fields{
+			"task_id":     req.GetTaskId(),
+			"destination": req.GetDestination(),
+		}).Debug("Processing known task.")
 		return &pbBroker.ProcessResponse{}, nil
+	}
+	log.WithFields(log.Fields{
+		"task_id":     req.GetTaskId(),
+		"destination": req.GetDestination(),
+	}).Error("Unrecognized tasked received for processing.")
+	return &pbBroker.ProcessResponse{}, errors.New("unknown task id recieved")
+}
+
+// attemptConnections attempts to connect the broker with other brokers using an exponential backoff
+// that resets after an hour.
+func (b *broker) attemptConnections() {
+	timeout := 0.0
+	for {
+		// Wait
+
+		// Request broker from nameserver
+
+		// Attempt to
 	}
 }
 
+// server contains the main-loop of the broker.
+func (b *broker) server() {
+
+}
 
 func main() {
 	flag.Parse()
@@ -367,13 +388,13 @@ func main() {
 	// 	}).Info("Broker listening.")
 	//
 	types := []string{"cpu"}
-	b, err := NewBroker(types)
+	b, err := NewBroker(10, types)
 	go b.sendHeartbeat()
 	go b.checkHeartbeats()
 	if err != nil {
 		log.Fatalf("Failed to create broker - %v\n", err)
 	}
-	
+
 	if err != nil {
 		fmt.Printf("Failed to register - %v\n", err)
 	}
