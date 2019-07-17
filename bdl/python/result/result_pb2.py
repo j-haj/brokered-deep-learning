@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='result',
   syntax='proto3',
   serialized_options=_b('Z\033github.com/j-haj/bdl/result'),
-  serialized_pb=_b('\n\x13result/result.proto\x12\x06result\"B\n\x06Result\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65stination\x18\x02 \x01(\t\x12\x12\n\nresult_obj\x18\x03 \x01(\x0c\x42\x1dZ\x1bgithub.com/j-haj/bdl/resultb\x06proto3')
+  serialized_pb=_b('\n\x13result/result.proto\x12\x06result\"B\n\x06Result\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65stination\x18\x02 \x01(\t\x12\x12\n\nresult_obj\x18\x03 \x01(\x0c\"\x10\n\x0eResultResponse2G\n\rResultService\x12\x36\n\nSendResult\x12\x0e.result.Result\x1a\x16.result.ResultResponse\"\x00\x42\x1dZ\x1bgithub.com/j-haj/bdl/resultb\x06proto3')
 )
 
 
@@ -70,7 +70,32 @@ _RESULT = _descriptor.Descriptor(
   serialized_end=97,
 )
 
+
+_RESULTRESPONSE = _descriptor.Descriptor(
+  name='ResultResponse',
+  full_name='result.ResultResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=99,
+  serialized_end=115,
+)
+
 DESCRIPTOR.message_types_by_name['Result'] = _RESULT
+DESCRIPTOR.message_types_by_name['ResultResponse'] = _RESULTRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Result = _reflection.GeneratedProtocolMessageType('Result', (_message.Message,), dict(
@@ -80,6 +105,37 @@ Result = _reflection.GeneratedProtocolMessageType('Result', (_message.Message,),
   ))
 _sym_db.RegisterMessage(Result)
 
+ResultResponse = _reflection.GeneratedProtocolMessageType('ResultResponse', (_message.Message,), dict(
+  DESCRIPTOR = _RESULTRESPONSE,
+  __module__ = 'result.result_pb2'
+  # @@protoc_insertion_point(class_scope:result.ResultResponse)
+  ))
+_sym_db.RegisterMessage(ResultResponse)
+
 
 DESCRIPTOR._options = None
+
+_RESULTSERVICE = _descriptor.ServiceDescriptor(
+  name='ResultService',
+  full_name='result.ResultService',
+  file=DESCRIPTOR,
+  index=0,
+  serialized_options=None,
+  serialized_start=117,
+  serialized_end=188,
+  methods=[
+  _descriptor.MethodDescriptor(
+    name='SendResult',
+    full_name='result.ResultService.SendResult',
+    index=0,
+    containing_service=None,
+    input_type=_RESULT,
+    output_type=_RESULTRESPONSE,
+    serialized_options=None,
+  ),
+])
+_sym_db.RegisterServiceDescriptor(_RESULTSERVICE)
+
+DESCRIPTOR.services_by_name['ResultService'] = _RESULTSERVICE
+
 # @@protoc_insertion_point(module_scope)

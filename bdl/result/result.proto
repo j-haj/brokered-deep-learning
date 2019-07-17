@@ -4,8 +4,14 @@ package result;
 
 option go_package = "github.com/j-haj/bdl/result";
 
+service ResultService {
+  rpc SendResult(Result) returns (ResultResponse) {}
+}
+
 message Result {
   string task_id = 1;
   string destination = 2;
   bytes result_obj = 3;
 }
+
+message ResultResponse {}

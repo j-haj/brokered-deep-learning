@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package model_service;
+
+option go_package = "github.com/j-haj/bdl/model_service";
+
+import "task_service/task_service.proto";
+
+service ModelService {
+  // Register is called by a model to a broker.
+  rpc Register(RegistrationRequest) returns (RegistrationResponse) {}
+
+  // SendTask is called by the model to send a task to the broker.
+  rpc SendTask(task_service.Task) returns (SendResponse) {}
+}
+
+message RegistrationRequest {
+  string address = 1;
+}
+
+message RegistrationResponse {}
+message SendResponse {}
+  
+
