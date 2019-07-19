@@ -5,6 +5,8 @@ import time
 
 from task_service import task_service_pb2
 from task_client.task_client import TaskClient
+from result import result_pb2
+
 class Worker():
 
     def __init__(self, broker_address):
@@ -17,11 +19,17 @@ class Worker():
                 tid, task = self.client.request_task()
                 if task is not None:
                     logging.debug("Processing task %s" % tid)
-                    time.sleep(1)
+                    r = task.run()
                     logging.debug("Processing of task %s done." % tid)
+                    result = result_pb2.Result(task_id=tid,
+                                               destination=task.source,
+                                               result_obj=pickle.dumps(r))
+                    self.client.send_result(result)
+                    logging.debug("Successfully sent result for task %s" % tid)
                 else:
                     logging.error("Error encountered in reconstructing task.")
-        
+        except KeyboardInterrupt:
+            logging.info("Shutting down worker.")
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -39,5 +47,8 @@ def main():
         logging.debug("Using DEBUG log level.")
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)
-        
-    
+    w = Worker(args.broker_address)
+    w.serve()
+
+if __name__ == "__main__":
+    main()
