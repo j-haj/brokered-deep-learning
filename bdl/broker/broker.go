@@ -73,6 +73,17 @@ func newBrokerConnection(address string) (brokerConnection, error) {
 }
 
 type modelClient struct {
+	client pbMS.ModelServiceClient
+	address modelAddress
+}
+
+func newModelClient(address modelAddress) (modelClient, err) {
+	conn, err := grpc.Dial(string(address), grpc.WithInsecure())
+	if err != nil {
+		return modelClient{}, errors.Wrap(err, "failed to create model client connection")
+	}
+	client := pbMS.NewModelServiceClient(conn)
+	return modelClient{client, address}, nil
 }
 
 type broker struct {
@@ -108,7 +119,6 @@ type broker struct {
 	// processingTasks are tasks currently being processed by a worker. If a task comes back
 	// and is not in the processingTasks map the result should be dropped.
 	processingTasks map[task.TaskID]ownedTask
-
 	// maxBorrowedCapacity is the number of shared tasks the broker is willing to accept
 	maxBorrowedCapacity int
 
@@ -333,14 +343,55 @@ func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBr
 			"task_id":     req.GetTaskId(),
 			"destination": req.GetDestination(),
 		}).Debug("Processing known task.")
-		return &pbBroker.ProcessResponse{}, nil
+
+		// Get model client and send result
+		destination := modelAddress(req.GetDestination())
+		if mc, ok := b.modelClients[destination]; ok {
+			mc.SendResult(req)
+			log.WithFields(log.Fields{
+				"task_id": req.GetTaskId(),
+				"model_destination": req.GetDestination(),
+			}).Debug("Sent results to model.")
+		} else {
+			log.WithFields(log.Fields{
+				"model_destination": req.GetDestination(),
+				"task_id": req.GetTaskId(),
+			}).Error("Failed to find model client.")
+		}
+		
+		return &pbBroker.ProcessRespopnse{}, nil
 	}
 	log.WithFields(log.Fields{
 		"task_id":     req.GetTaskId(),
 		"destination": req.GetDestination(),
 	}).Error("Unrecognized tasked received for processing.")
-	return &pbBroker.ProcessResponse{}, errors.New("unknown task id recieved")
+	return &pbBroker.ProcessResponse{}, nil
 }
+
+// RegisterModel handles the registration request of a model.
+func (b *broker) RegisterModel(ctx context.Context, req *pbMS.RegistrationRequest) (*pbMS.RegistrationResponse, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	
+	address := modelAddress(req.GetAddress())
+	client, err := newModelClient(address)
+	if err != nil {
+		return &pbMS.SendResponse{}, err
+	}
+	b.modelClients[address] = client
+	return &pbMS.SendResponse{}, nil
+}
+
+func (b *broker) SendTask(ctx context.Context, req *pbTaskService.Task) (*pbMS.SendResponse, error) {
+	// create an owned task
+
+	// add to ownedTasks
+
+	// queue task for processing
+	return &pbMS.SendResponse{}, nil
+}
+
+
 
 // attemptConnections attempts to connect the broker with other brokers using an exponential backoff
 // that resets after an hour.
