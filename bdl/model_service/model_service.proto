@@ -8,7 +8,7 @@ import "task_service/task_service.proto";
 
 service ModelService {
   // Register is called by a model to a broker.
-  rpc Register(RegistrationRequest) returns (RegistrationResponse) {}
+  rpc RegisterModel(RegistrationRequest) returns (RegistrationResponse) {}
 
   // SendTask is called by the model to send a task to the broker.
   rpc SendTask(task_service.Task) returns (SendResponse) {}

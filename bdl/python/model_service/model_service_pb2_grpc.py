@@ -15,8 +15,8 @@ class ModelServiceStub(object):
     Args:
       channel: A grpc.Channel.
     """
-    self.Register = channel.unary_unary(
-        '/model_service.ModelService/Register',
+    self.RegisterModel = channel.unary_unary(
+        '/model_service.ModelService/RegisterModel',
         request_serializer=model__service_dot_model__service__pb2.RegistrationRequest.SerializeToString,
         response_deserializer=model__service_dot_model__service__pb2.RegistrationResponse.FromString,
         )
@@ -31,7 +31,7 @@ class ModelServiceServicer(object):
   # missing associated documentation comment in .proto file
   pass
 
-  def Register(self, request, context):
+  def RegisterModel(self, request, context):
     """Register is called by a model to a broker.
     """
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -48,8 +48,8 @@ class ModelServiceServicer(object):
 
 def add_ModelServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
-      'Register': grpc.unary_unary_rpc_method_handler(
-          servicer.Register,
+      'RegisterModel': grpc.unary_unary_rpc_method_handler(
+          servicer.RegisterModel,
           request_deserializer=model__service_dot_model__service__pb2.RegistrationRequest.FromString,
           response_serializer=model__service_dot_model__service__pb2.RegistrationResponse.SerializeToString,
       ),

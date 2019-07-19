@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='model_service',
   syntax='proto3',
   serialized_options=_b('Z\"github.com/j-haj/bdl/model_service'),
-  serialized_pb=_b('\n!model_service/model_service.proto\x12\rmodel_service\x1a\x1ftask_service/task_service.proto\"&\n\x13RegistrationRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\x16\n\x14RegistrationResponse\"\x0e\n\x0cSendResponse2\xa4\x01\n\x0cModelService\x12U\n\x08Register\x12\".model_service.RegistrationRequest\x1a#.model_service.RegistrationResponse\"\x00\x12=\n\x08SendTask\x12\x12.task_service.Task\x1a\x1b.model_service.SendResponse\"\x00\x42$Z\"github.com/j-haj/bdl/model_serviceb\x06proto3')
+  serialized_pb=_b('\n!model_service/model_service.proto\x12\rmodel_service\x1a\x1ftask_service/task_service.proto\"&\n\x13RegistrationRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\x16\n\x14RegistrationResponse\"\x0e\n\x0cSendResponse2\xa9\x01\n\x0cModelService\x12Z\n\rRegisterModel\x12\".model_service.RegistrationRequest\x1a#.model_service.RegistrationResponse\"\x00\x12=\n\x08SendTask\x12\x12.task_service.Task\x1a\x1b.model_service.SendResponse\"\x00\x42$Z\"github.com/j-haj/bdl/model_serviceb\x06proto3')
   ,
   dependencies=[task__service_dot_task__service__pb2.DESCRIPTOR,])
 
@@ -142,11 +142,11 @@ _MODELSERVICE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   serialized_start=166,
-  serialized_end=330,
+  serialized_end=335,
   methods=[
   _descriptor.MethodDescriptor(
-    name='Register',
-    full_name='model_service.ModelService.Register',
+    name='RegisterModel',
+    full_name='model_service.ModelService.RegisterModel',
     index=0,
     containing_service=None,
     input_type=_REGISTRATIONREQUEST,
