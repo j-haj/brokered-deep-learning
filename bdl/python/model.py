@@ -6,7 +6,12 @@ import queue
 import time
 
 import grpc
+
+from empty_task import EmptyTask
+
+from broker_client.broker_client import BrokerClient
 from model_service.model_service_pb2_grpc import ModelServiceServicer
+from model_service.model_service_pb2_grpc import ModelServiceStub
 from model_service import model_service_pb2
 from model_service import model_service_pb2_grpc
 from result.result_pb2_grpc import ResultServiceServicer
@@ -28,21 +33,36 @@ class ResultServicer(ResultServiceServicer):
         task_id = request.task_id
         try:
             obj = pickle.loads(request.result_obj)
-        except pick.UnpicklingError as e:
+        except pickle.UnpicklingError as e:
             logging.error("encountered error while unpickling - {}".format(e))
             return result_pb2.ResultResponse()
         self.result_q.put(Result(task_id, obj))
         return result_pb2.ResultResponse()
 
+class TaskBuilder():
+    @staticmethod
+    def build_task():
+        return EmptyTask(1)
+
 class ModelServer():
 
     def __init__(self, model_address, broker_address):
+        self.task_count = 0
         self.model_address = model_address
         self.broker_address = broker_address
+        self.broker_client = BrokerClient(broker_address)
         self.result_servicer = ResultServicer()
         self.server = grpc.server(futures.ThreadPoolExecutor(4))
         result_pb2_grpc.add_ResultServiceServicer_to_server(self.result_servicer,
                                                             self.server)
+
+
+    def generate_task(self):
+        t = TaskBuilder.build_task()
+        tid = "{}#{}".format(self.model_address, self.task_count)
+        self.task_count += 1
+        return task_service_pb2.Task(task_id=tid, source=self.model_address,
+                                     task_obj=pickle.dumps(t))
 
     def serve(self):
         self.server.start()
@@ -52,6 +72,7 @@ class ModelServer():
                 self.process_results()
                 time.sleep(1)
                 logging.debug("Model server waiting")
+                self.broker_client.send_task(self.generate_task())
         except KeyboardInterrupt:
             logging.info("Shutting down model server.")
             self.server.stop(0)
