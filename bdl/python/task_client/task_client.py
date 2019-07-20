@@ -22,12 +22,14 @@ class TaskClient():
         task = self.task_stub.RequestTask(request)
         try:
             task_obj = pickle.loads(task.task_obj)
-            return (task.task_id, task_objc)
+            return (task, task_obj)
         except pickle.UnpicklingError as e:
             logging.error("encountered error while unpickling - {}".format(e))
-            return (task.task_id, None)
+            return (task, None)
 
     def send_result(self, result):
+        logging.debug("Sending task %s result to %s." % (result.task_id,
+                                                         result.destination))
         self.result_stub.SendResult(result)
         return
             

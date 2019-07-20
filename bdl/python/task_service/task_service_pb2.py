@@ -13,7 +13,6 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-from result import result_pb2 as result_dot_result__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
@@ -21,9 +20,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='task_service',
   syntax='proto3',
   serialized_options=_b('Z!github.com/j-haj/bdl/task_service'),
-  serialized_pb=_b('\n\x1ftask_service/task_service.proto\x12\x0ctask_service\x1a\x13result/result.proto\"9\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06source\x18\x02 \x01(\t\x12\x10\n\x08task_obj\x18\x03 \x01(\x0c\"\r\n\x0bTaskRequest\"\x10\n\x0eResultResponse2\x8b\x01\n\x0bTaskService\x12>\n\x0bRequestTask\x12\x19.task_service.TaskRequest\x1a\x12.task_service.Task\"\x00\x12<\n\nSendResult\x12\x0e.result.Result\x1a\x1c.task_service.ResultResponse\"\x00\x42#Z!github.com/j-haj/bdl/task_serviceb\x06proto3')
-  ,
-  dependencies=[result_dot_result__pb2.DESCRIPTOR,])
+  serialized_pb=_b('\n\x1ftask_service/task_service.proto\x12\x0ctask_service\"9\n\x04Task\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06source\x18\x02 \x01(\t\x12\x10\n\x08task_obj\x18\x03 \x01(\x0c\"\r\n\x0bTaskRequest\"\x10\n\x0eResultResponse2M\n\x0bTaskService\x12>\n\x0bRequestTask\x12\x19.task_service.TaskRequest\x1a\x12.task_service.Task\"\x00\x42#Z!github.com/j-haj/bdl/task_serviceb\x06proto3')
+)
 
 
 
@@ -68,8 +66,8 @@ _TASK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=70,
-  serialized_end=127,
+  serialized_start=49,
+  serialized_end=106,
 )
 
 
@@ -92,8 +90,8 @@ _TASKREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=129,
-  serialized_end=142,
+  serialized_start=108,
+  serialized_end=121,
 )
 
 
@@ -116,8 +114,8 @@ _RESULTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=144,
-  serialized_end=160,
+  serialized_start=123,
+  serialized_end=139,
 )
 
 DESCRIPTOR.message_types_by_name['Task'] = _TASK
@@ -155,8 +153,8 @@ _TASKSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=163,
-  serialized_end=302,
+  serialized_start=141,
+  serialized_end=218,
   methods=[
   _descriptor.MethodDescriptor(
     name='RequestTask',
@@ -165,15 +163,6 @@ _TASKSERVICE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_TASKREQUEST,
     output_type=_TASK,
-    serialized_options=None,
-  ),
-  _descriptor.MethodDescriptor(
-    name='SendResult',
-    full_name='task_service.TaskService.SendResult',
-    index=1,
-    containing_service=None,
-    input_type=result_dot_result__pb2._RESULT,
-    output_type=_RESULTRESPONSE,
     serialized_options=None,
   ),
 ])

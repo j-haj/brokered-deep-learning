@@ -15,7 +15,11 @@ class BrokerClient():
 
     def register(self, address):
         req = model_service_pb2.RegistrationRequest(address=address)
-        self.client.RegisterModel(req)
+        resp = self.client.RegisterModel(req)
+        if resp.success:
+            logging.debug("Registered with broker %s" % address)
+        else:
+            logging.error("Failed to register with broker %s" % address)
 
     def send_task(self, task):
         self.client.SendTask(task)

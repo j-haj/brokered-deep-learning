@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='model_service',
   syntax='proto3',
   serialized_options=_b('Z\"github.com/j-haj/bdl/model_service'),
-  serialized_pb=_b('\n!model_service/model_service.proto\x12\rmodel_service\x1a\x1ftask_service/task_service.proto\"&\n\x13RegistrationRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\x16\n\x14RegistrationResponse\"\x0e\n\x0cSendResponse2\xa9\x01\n\x0cModelService\x12Z\n\rRegisterModel\x12\".model_service.RegistrationRequest\x1a#.model_service.RegistrationResponse\"\x00\x12=\n\x08SendTask\x12\x12.task_service.Task\x1a\x1b.model_service.SendResponse\"\x00\x42$Z\"github.com/j-haj/bdl/model_serviceb\x06proto3')
+  serialized_pb=_b('\n!model_service/model_service.proto\x12\rmodel_service\x1a\x1ftask_service/task_service.proto\"&\n\x13RegistrationRequest\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\"\'\n\x14RegistrationResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\x0e\n\x0cSendResponse2\xa9\x01\n\x0cModelService\x12Z\n\rRegisterModel\x12\".model_service.RegistrationRequest\x1a#.model_service.RegistrationResponse\"\x00\x12=\n\x08SendTask\x12\x12.task_service.Task\x1a\x1b.model_service.SendResponse\"\x00\x42$Z\"github.com/j-haj/bdl/model_serviceb\x06proto3')
   ,
   dependencies=[task__service_dot_task__service__pb2.DESCRIPTOR,])
 
@@ -66,6 +66,13 @@ _REGISTRATIONRESPONSE = _descriptor.Descriptor(
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
+    _descriptor.FieldDescriptor(
+      name='success', full_name='model_service.RegistrationResponse.success', index=0,
+      number=1, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -79,7 +86,7 @@ _REGISTRATIONRESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=125,
-  serialized_end=147,
+  serialized_end=164,
 )
 
 
@@ -102,8 +109,8 @@ _SENDRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=149,
-  serialized_end=163,
+  serialized_start=166,
+  serialized_end=180,
 )
 
 DESCRIPTOR.message_types_by_name['RegistrationRequest'] = _REGISTRATIONREQUEST
@@ -141,8 +148,8 @@ _MODELSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=166,
-  serialized_end=335,
+  serialized_start=183,
+  serialized_end=352,
   methods=[
   _descriptor.MethodDescriptor(
     name='RegisterModel',

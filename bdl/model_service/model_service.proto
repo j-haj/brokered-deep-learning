@@ -18,7 +18,9 @@ message RegistrationRequest {
   string address = 1;
 }
 
-message RegistrationResponse {}
+message RegistrationResponse {
+  bool success = 1;
+}
 message SendResponse {}
   
 

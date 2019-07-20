@@ -16,10 +16,12 @@ class Worker():
         try:
             while True:
                 logging.debug("Requesting task")
-                tid, task = self.client.request_task()
+                task, runnable = self.client.request_task()
+                tid = task.task_id
+                
                 if task is not None:
                     logging.debug("Processing task %s" % tid)
-                    r = task.run()
+                    r = runnable.run()
                     logging.debug("Processing of task %s done." % tid)
                     result = result_pb2.Result(task_id=tid,
                                                destination=task.source,

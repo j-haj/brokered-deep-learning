@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -81,9 +82,18 @@ type modelClient struct {
 func newModelClient(address modelAddress) (modelClient, error) {
 	conn, err := grpc.Dial(string(address), grpc.WithInsecure())
 	if err != nil {
+		log.WithFields(log.Fields{
+			"model_address": address,
+		}).Error("Failed to create model client.")
 		return modelClient{}, fmt.Errorf("failed to create model client connection - %v", err)
 	}
+	log.WithFields(log.Fields{
+		"model_address": address,
+	}).Debug("Established dialed RPC connection for model client.")
 	client := pbResult.NewResultServiceClient(conn)
+	if client == nil {
+		log.Error("NIL CLIENT")
+	}
 	return modelClient{client, address}, nil
 }
 
@@ -140,6 +150,14 @@ func NewBroker(maxBorrowedCapacity int, types []string) (*broker, error) {
 		hbClient:            pbHB.NewHeartbeatClient(conn),
 		types:               types,
 		maxBorrowedCapacity: maxBorrowedCapacity,
+		modelClients: make(map[modelAddress]modelClient),
+		linkedBrokers: make(map[brokerID]brokerConnection),
+		heartbeats: make(map[brokerID]time.Time),
+		associatedTasks: make(map[brokerID][]task.TaskID),
+		ownedTasks: make(map[task.TaskID]ownedTask),
+		borrowedTasks: make(map[task.TaskID]ownedTask),
+		sharedTasks: make(map[task.TaskID]brokerID),
+		processingTasks: make(map[task.TaskID]ownedTask),
 	}
 
 	err = b.registerWithNameserver()
@@ -355,6 +373,58 @@ func (b *broker) ShareTask(ctx context.Context, req *pbBroker.ShareRequest) (*pb
 	return &pbBroker.ShareResponse{Ok: true}, nil
 }
 
+// SendResult is called by a worker to report the result back to the broker.
+func (b *broker) SendResult(ctx context.Context, req *pbResult.Result) (*pbResult.ResultResponse, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+
+	tid := task.TaskID(req.GetTaskId())
+	destination := req.GetDestination()
+	if _, ok := b.processingTasks[tid]; !ok {
+		// If the task is not in processing tasks then we should
+		// drop the result
+		log.WithFields(log.Fields{
+			"task_id": tid,
+			"destination": req.GetDestination(),
+		}).Debug("Dropping result")
+		return &pbResult.ResultResponse{}, fmt.Errorf("dropped result")
+	} else if _, ok := b.ownedTasks[tid]; ok {
+		// This is an owned task
+		c, cancel := context.WithTimeout(context.Background(),
+			time.Duration(*timeout) * time.Second)
+		defer cancel()
+		mc := b.modelClients[modelAddress(destination)]
+		_, err := mc.client.SendResult(c, req)
+		log.WithFields(log.Fields{
+			"task_id": tid,
+			"destination": destination,
+		}).Debug("Sent result to model.")
+		if err != nil {
+			log.Errorf("non-nil error after sending result to model - %v", err)
+		}
+		return &pbResult.ResultResponse{}, nil
+	} else if t, ok := b.borrowedTasks[tid]; ok {
+		c, cancel := context.WithTimeout(context.Background(),
+			time.Duration(*timeout) * time.Second)
+		defer cancel()
+		b := b.linkedBrokers[t.owner]
+		b.brokerClient.ProcessResult(c, req)
+		log.WithFields(log.Fields{
+			"task_id": tid,
+			"destination": destination,
+		}).Debug("Returning result to owning broker.")
+		return &pbResult.ResultResponse{}, nil
+	} else {
+		// Unknown task
+		log.WithFields(log.Fields{
+			"task_id": tid,
+			"destination": req.GetDestination(),
+		}).Error("Result received for unknown task. Dropping")
+	}
+	return &pbResult.ResultResponse{}, fmt.Errorf("unknown result received at %s", b.brokerId)
+}
+
 // ProcessResult is used to send a shared task back to the owning broker.
 func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBroker.ProcessResponse, error) {
 	b.mu.Lock()
@@ -401,19 +471,30 @@ func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBr
 func (b *broker) RegisterModel(ctx context.Context, req *pbMS.RegistrationRequest) (*pbMS.RegistrationResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
+	log.WithFields(log.Fields{
+		"model_address": req.GetAddress(),
+	}).Debug("Received model registration request.")
 	address := modelAddress(req.GetAddress())
 	client, err := newModelClient(address)
 	if err != nil {
-		return &pbMS.RegistrationResponse{}, err
+		log.WithFields(log.Fields{
+			"model_address": req.GetAddress(),
+		}).Error("Failed to create model result client.")
+		return &pbMS.RegistrationResponse{Success: false}, err
 	}
 	b.modelClients[address] = client
-	return &pbMS.RegistrationResponse{}, nil
+	return &pbMS.RegistrationResponse{Success: true}, nil
 }
 
 func (b *broker) SendTask(ctx context.Context, req *pbTask.Task) (*pbMS.SendResponse, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	log.WithFields(log.Fields{
+		"task_id": req.GetTaskId(),
+		"source_address": req.GetSource(),
+	}).Debug("Received task")
 	
 	// create an owned task
 	t := newTask(b.brokerId, req)
@@ -427,7 +508,19 @@ func (b *broker) SendTask(ctx context.Context, req *pbTask.Task) (*pbMS.SendResp
 	return &pbMS.SendResponse{}, nil
 }
 
+func (b *broker) RequestTask(ctx context.Context, req *pbTask.TaskRequest) (*pbTask.Task, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	log.Debug("Received task request - sending task.")
+	t, err := b.queuedTasks.Pop()
 
+	if err != nil {
+		log.Debug("Failed to pop from task queue")
+		return &pbTask.Task{TaskId: "", Source: ""}, err
+	}
+	b.processingTasks[task.TaskID(t.GetTaskId())] = newTask(b.brokerId, t)
+	return t, nil
+}
 
 // attemptConnections attempts to connect the broker with other brokers using an exponential backoff
 // that resets after an hour.
@@ -464,20 +557,26 @@ func main() {
 	}
 
 	// Create server and listen
-	// 	lis, err := net.Listen("tcp", *brokerAddress)
-	// 	if err != nil {
-	// 		log.WithFields(log.Fields{
-	// 			"address": *brokerAddress,
-	// 		}).Fatal("Failed to listen.")
-	// 	}
-	// 	log.WithFields(log.Fields{
-	// 		"address": *brokerAddress,
-	// 	}).Info("Broker listening.")
-	//
+	lis, err := net.Listen("tcp", *brokerAddress)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"address": *brokerAddress,
+		}).Fatal("Failed to listen.")
+	}
+	log.WithFields(log.Fields{
+		"address": *brokerAddress,
+	}).Info("Broker listening.")
+
+	s := grpc.NewServer()
+	
 	types := []string{"cpu"}
 	b, err := NewBroker(10, types)
 	go b.sendHeartbeat()
 	go b.checkHeartbeats()
+	pbHB.RegisterHeartbeatServer(s, b)
+	pbMS.RegisterModelServiceServer(s, b)
+	pbTask.RegisterTaskServiceServer(s, b)
+	pbResult.RegisterResultServiceServer(s, b)
 	if err != nil {
 		log.Fatalf("Failed to create broker - %v\n", err)
 	}
@@ -486,7 +585,7 @@ func main() {
 		fmt.Printf("Failed to register - %v\n", err)
 	}
 
-	for _ = range time.Tick(1 * time.Second) {
-		fmt.Println("Waiting")
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("Failed to server: %v", err)
 	}
 }

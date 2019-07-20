@@ -30,13 +30,14 @@ class ResultServicer(ResultServiceServicer):
         self.result_q = queue.Queue()
     
     def SendResult(self, request, context):
+        logging.debug("Received result with task_id: {}".format(request.task_id))
         task_id = request.task_id
         try:
             obj = pickle.loads(request.result_obj)
+            self.result_q.put(Result(task_id, obj))
         except pickle.UnpicklingError as e:
             logging.error("encountered error while unpickling - {}".format(e))
             return result_pb2.ResultResponse()
-        self.result_q.put(Result(task_id, obj))
         return result_pb2.ResultResponse()
 
 class TaskBuilder():
@@ -51,6 +52,7 @@ class ModelServer():
         self.model_address = model_address
         self.broker_address = broker_address
         self.broker_client = BrokerClient(broker_address)
+        self.broker_client.register(model_address)
         self.result_servicer = ResultServicer()
         self.server = grpc.server(futures.ThreadPoolExecutor(4))
         result_pb2_grpc.add_ResultServiceServicer_to_server(self.result_servicer,
@@ -102,7 +104,8 @@ def main():
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
-    server = ModelServer(args.model_address, args.broker_address)
+    server = ModelServer(model_address=args.model_address,
+                         broker_address=args.broker_address)
     server.serve()
     
 if __name__ == "__main__":
