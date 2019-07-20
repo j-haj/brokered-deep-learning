@@ -16,6 +16,7 @@ import (
 
 	pbBroker "github.com/j-haj/bdl/broker_comm"
 	pbHB "github.com/j-haj/bdl/heartbeat"
+	pbMS "github.com/j-haj/bdl/model_service"
 	pbNS "github.com/j-haj/bdl/nameservice"
 	pbResult "github.com/j-haj/bdl/result"
 	task "github.com/j-haj/bdl/task"
@@ -73,16 +74,16 @@ func newBrokerConnection(address string) (brokerConnection, error) {
 }
 
 type modelClient struct {
-	client pbMS.ModelServiceClient
+	client pbResult.ResultServiceClient
 	address modelAddress
 }
 
-func newModelClient(address modelAddress) (modelClient, err) {
+func newModelClient(address modelAddress) (modelClient, error) {
 	conn, err := grpc.Dial(string(address), grpc.WithInsecure())
 	if err != nil {
-		return modelClient{}, errors.Wrap(err, "failed to create model client connection")
+		return modelClient{}, fmt.Errorf("failed to create model client connection - %v", err)
 	}
-	client := pbMS.NewModelServiceClient(conn)
+	client := pbResult.NewResultServiceClient(conn)
 	return modelClient{client, address}, nil
 }
 
@@ -314,6 +315,30 @@ func (b *broker) Connect(ctx context.Context, req *pbBroker.ConnectionRequest) (
 
 // Disconnect is called by a broker to destroy a link with another broker.
 func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest) (*pbBroker.DisconnectResponse, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	id := brokerID(req.GetBrokerId())
+
+	// Remove broker as a linked broker
+	if _, ok := b.linkedBrokers[id]; ok {
+		delete(b.linkedBrokers, id)
+	}
+
+	// Remove from heartbeat list
+	if _, ok := b.heartbeats[id]; ok {
+		delete(b.heartbeats, id)
+	}
+
+	// Remove any associated tasks
+	if _, ok := b.associatedTasks[id]; ok {
+		for _, tid := range b.associatedTasks[id] {
+			if _, ok := b.processingTasks[tid]; ok {
+				delete(b.processingTasks, tid)
+			}
+		}
+		delete(b.associatedTasks, id)
+	}
 	return nil, errors.New("Not implemented")
 }
 
@@ -347,7 +372,11 @@ func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBr
 		// Get model client and send result
 		destination := modelAddress(req.GetDestination())
 		if mc, ok := b.modelClients[destination]; ok {
-			mc.SendResult(req)
+			ctx2, cancel := context.WithTimeout(context.Background(),
+				time.Duration(*timeout) * time.Second)
+			defer cancel()
+			
+			mc.client.SendResult(ctx2, req)
 			log.WithFields(log.Fields{
 				"task_id": req.GetTaskId(),
 				"model_destination": req.GetDestination(),
@@ -359,7 +388,7 @@ func (b *broker) ProcessResult(ctx context.Context, req *pbResult.Result) (*pbBr
 			}).Error("Failed to find model client.")
 		}
 		
-		return &pbBroker.ProcessRespopnse{}, nil
+		return &pbBroker.ProcessResponse{}, nil
 	}
 	log.WithFields(log.Fields{
 		"task_id":     req.GetTaskId(),
@@ -376,18 +405,25 @@ func (b *broker) RegisterModel(ctx context.Context, req *pbMS.RegistrationReques
 	address := modelAddress(req.GetAddress())
 	client, err := newModelClient(address)
 	if err != nil {
-		return &pbMS.SendResponse{}, err
+		return &pbMS.RegistrationResponse{}, err
 	}
 	b.modelClients[address] = client
-	return &pbMS.SendResponse{}, nil
+	return &pbMS.RegistrationResponse{}, nil
 }
 
-func (b *broker) SendTask(ctx context.Context, req *pbTaskService.Task) (*pbMS.SendResponse, error) {
+func (b *broker) SendTask(ctx context.Context, req *pbTask.Task) (*pbMS.SendResponse, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	
 	// create an owned task
+	t := newTask(b.brokerId, req)
 
 	// add to ownedTasks
+	b.ownedTasks[task.TaskID(req.GetTaskId())] = t
 
 	// queue task for processing
+	b.queuedTasks.Push(req)
+	
 	return &pbMS.SendResponse{}, nil
 }
 
@@ -396,7 +432,7 @@ func (b *broker) SendTask(ctx context.Context, req *pbTaskService.Task) (*pbMS.S
 // attemptConnections attempts to connect the broker with other brokers using an exponential backoff
 // that resets after an hour.
 func (b *broker) attemptConnections() {
-	timeout := 0.0
+	//timeout := 0.0
 	for {
 		// Wait
 

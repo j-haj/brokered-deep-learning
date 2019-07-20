@@ -35,7 +35,9 @@ message ConnectionRequest {
 
 message ConnectionResponse {}
 
-message DisconnectRequest {}
+message DisconnectRequest {
+  string broker_id = 1;
+}
 message DisconnectResponse {}
 message ProcessResponse {}
 
