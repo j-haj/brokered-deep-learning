@@ -3,7 +3,8 @@
 % The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{sourcecodepro}
@@ -104,7 +105,38 @@ experiments we focus on the evolutionary approach due to its simplicity both in
 understanding and implementation.
 
 \subsection{Evolutionary Algorithms for NAS}
+We use a relatively simple approach to evolving neural network architectures.
+The problem domain we focus on is computer vision, so we restrict ourselves
+to convolutional layers for the hidden layers. The last two layers of the
+network are dense layer and are fixed to assure the number of categories
+is sensible for the given classification task. The challenge with evolving
+a neural network is in maintaining a valid neural network (a neural network
+with a path from the input layer to the output layer). We maintain this
+invariant as follows. Each time a layer is added to the network, it is
+randomly connected to another layer in the network; however, there is
+no guarantee that these two connected layers are part of the path from
+the input layer to the output layer. It is possible they form a disconnected
+subgraph of the network graph. We also maintain a phantom last layer --
+it is not an actual layer but represents the first fixed last layer in
+the formed network. Maintaining this phantom layer separate from the modified
+layers allows us to always append layers without having to rearrange the
+last layer.
 
+\begin{algorithm}
+  \caption{High-level outline of evolutionary algorithm.}\label{alg:evo-simple}
+  \begin{algorithmic}[1]
+    \Procedure{MutateNetwork}{}
+    \State $\texttt{layer} \gets
+    \texttt{RandomChoice}(\texttt{available\_layers})$
+    \State $\texttt{this.layers.append(layer)}$
+    \State $\texttt{this.connections.addRandomConnection}$
+    \While {\textbf{not} $\texttt{this.nn.isConnected()}$}
+    \State \text{Pick random layer and connect to last layer}
+    \EndWhile
+    \State \textbf{return} \texttt{GenerateNetwork(this.layers)}
+    \EndProcedure
+  \end{algorithmic}
+\end{algorithm}
 
 \section{RPC-based Communication}
 Remote Procedure Call (RPC) offers a method of invoking a function on a remote
@@ -120,6 +152,45 @@ diverse communication patterns and paradigms. RPC forms the network communicatio
 infrastructure at Google \cite{van2017production}, Facebook \cite{Slee2007},
 as well as Hadoop
 \cite{Shvachko:2010:HDF:1913798.1914427, Lu:2013:HDH:2570457.2571128}.
+
+While the robustness to node failures and finer-grained point-to-point
+communication capabilities of RPC are core to building resilient
+distributed systems, the more powerful feature we capitalize on is
+the ability to build a system that is agnostic to the type of data
+flowing through its pipes. Figure~\ref{fig:data-agnostic} gives an example
+of constructing a Protocol Buffer[CITE] message type that can be used to
+transport arbitrary data types through the system. Protocol Buffers (and
+similarly, Thrift messages) support arbitrary length byte arrays
+\footnote{In practice
+  these arrays are limited in size. The failure rate of the RPC system
+  typically increases with the size of the messages.} This means the
+user can send a serialized object stored in the \texttt{Task}'s
+\texttt{task\_obj} field without having to modify the system.
+A user can switch between running models and tasks using Java to running
+models and tasks using Python without modifying the system. In fact,
+the system can transport and run these tasks (in both Java and Python)
+simultaneously. By encapsulating the tasks (and results) as serialized
+objects stored as byte arrays the entire system can be data type
+agnostic.
+
+\begin{figure}
+  \begin{lstlisting}
+message Task {
+  string id = 1;
+  enum type = 2; // or string type
+  bytes task_obj = 3;
+}
+  \end{lstlisting}
+  \caption{Example of a data agnostic message type.}\label{fig:data-agnostic}
+\end{figure}
+
+There is a slight catch. If information within the serialized object
+is needed to properly schedule or transport the task/result to its
+destination, this information will need to be added to the message
+definition. This requires recompiling the message types and regenerating
+the gRPC (or Thrift) stubs. This is a minor inconveninece, as incorporating
+this new information into the system requires modifying the system
+infrastructure.
 
 \subsection{RPC vs MPI}
 
@@ -229,6 +300,12 @@ the result to its owner, which may be a model or another broker.
 
 Brokers can establish links with other brokers.
 
+\begin{figure}
+  \centering
+  \includegraphics{img/model_broker}
+  \caption{Communication pattern between the broker and
+    model.}\label{fig:broker-model}
+\end{figure}
 
 \section{Experiments}
 
