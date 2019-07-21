@@ -57,6 +57,7 @@ class ModelServer():
         self.server = grpc.server(futures.ThreadPoolExecutor(4))
         result_pb2_grpc.add_ResultServiceServicer_to_server(self.result_servicer,
                                                             self.server)
+        self.server.add_insecure_port(model_address)
 
 
     def generate_task(self):
@@ -73,13 +74,15 @@ class ModelServer():
             while True:
                 self.process_results()
                 time.sleep(1)
-                logging.debug("Model server waiting")
+                logging.debug("Generating new task")
                 self.broker_client.send_task(self.generate_task())
+                logging.debug("Task sent.")
         except KeyboardInterrupt:
             logging.info("Shutting down model server.")
             self.server.stop(0)
 
     def process_results(self):
+        logging.debug("Checking result_servicer result queue.")
         while not self.result_servicer.result_q.empty():
             r = self.result_servicer.result_q.get()
             logging.info("Processing result: {}".format(r))
