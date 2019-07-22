@@ -283,6 +283,13 @@ While the system is fault-tolerant for most brokers and all workers, if the
 broker the model is sending work to fails, the work the model is waiting to
 receive will be lost and the model will need to resend to a new broker.
 
+\begin{figure}
+  \centering
+  \includegraphics{img/broker_worker}
+  \caption{Communication pattern between a worker and broker.}
+  \label{fig:worker-broker}
+\end{figure}
+
 \subsection{Worker}
 Workers are the other user-defined and implemented portion of the system. While
 a single worker implementation can work for multiple model implementations, there
@@ -337,6 +344,12 @@ does not persist this to some type of durable medium (e.g., HDFS
 \cite{Shvachko:2010:HDF:1913798.1914427}) then it is possible for multiple brokers
 to receive the same broker ID.
 
+\begin{figure}
+  \centering
+  \includegraphics{img/broker_broker}
+  \caption{Communication pattern for broker-broker communication.}
+  \label{fig:broker-broker}
+\end{figure}
 
 \subsection{Broker}
 Brokers form the data pipeline of our system. Work is sent from a model to a broker,
