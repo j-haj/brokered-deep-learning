@@ -142,7 +142,7 @@ last layer.
 Remote Procedure Call (RPC) offers a method of invoking a function on a remote
 computer with a given set of arguments. Most RPC frameworks involve a DSL used
 to define the RPC service, that is, the API available to the caller, and some
-type of data serialization format. For example, gRPC uses Protocol Buffers
+type of data serialization format. For example, gRPC uses Protocol Buffers (ProtoBufs)
 \cite{Varda2008} as the serialization format for data sent across the network.
 RPC offers a number of advantages for network communication. It is robust to
 node failures or network partitions (the RPC invokation simply fails). The data
@@ -152,6 +152,33 @@ diverse communication patterns and paradigms. RPC forms the network communicatio
 infrastructure at Google \cite{van2017production}, Facebook \cite{Slee2007},
 as well as Hadoop
 \cite{Shvachko:2010:HDF:1913798.1914427, Lu:2013:HDH:2570457.2571128}.
+
+RPC frameworks typically use an IDL to represent the RPC
+service. Figure~\ref{fig:heartbeat} gives an example of a gRPC service
+definition for a heartbeat service. The ProtoBuf compiler uses this definition
+to generate server stubs and service clients in a number of languages (C++,
+Java, Python, Go, etc.). The receiver of the RPC call must complete the server
+stubs by implementing the defined interface. For example, in the heartbeat
+service defined in Figure~\ref{fig:heartbeat}, the receiver of the heartbeat
+message would implement a \texttt{SendHeartbeat} function whose body would
+handle the logic of \emph{receiving} a heartbeat from another process,
+such as updating a timestamp for the given process ID. The caller of
+\texttt{SendHeartbeat} uses the generated Heartbeat service client and is only
+responsible for constructing the \texttt{HeartbeatMsg}.
+
+\begin{figure}
+  \begin{lstlisting}
+service Heartbeat {
+  rpc SendHeartbeat(HeartbeatMsg) returns (HeartbeatResp) {}
+}
+message HeartbeatMsg {
+  string id = 1;
+}
+message HeartbeatResp {}
+\end{lstlisting}
+\caption{Example gRPC service definition of a heartbeat service.}
+\label{fig:heartbeat}
+\end{figure}
 
 While the robustness to node failures and finer-grained point-to-point
 communication capabilities of RPC are core to building resilient
@@ -193,6 +220,35 @@ this new information into the system requires modifying the system
 infrastructure.
 
 \subsection{RPC vs MPI}
+From
+a performance perspective, some prior work [CITE] has found RPC to provide lower
+latency and higher bandwidth for some tasks. That does not tell the entire
+story. MPI comes with built-in complex communication primitives that are capable
+of taking advantage the physical network architecture of the
+cluster. Additionally, MPI is capable of bulk broadcasts to groups of nodes
+using custom communicator definitions. These primitives save the programmer a
+lot of overhead when building HPC applications. Settings such as large,
+distributed matrix multiplications or iterative optimization algorithms are
+particuarly well suited for MPI's communication primitives.
+
+However, applications that benefit from specialized communication patterns or
+that are asynchronous in nature are typically better suited for RPC-based
+communication. Consider, for example, an application that sends some amount of
+work to a number of worker nodes and waits for the work to be completed. In the
+synchronous setting, the entire system will only be as fast as its slowest node
+and will cause idle resources as the faster nodes wait for the slowest node to
+finish. In the asynchronous setting, the faster nodes can continue to process
+work. This scenario was a motivation for [DIST DEEP LEARNING PAPER].
+
+Of course,
+MPI does offer asynchronous communication, but it is not as flexible as that of
+RPC-based systems. In an asynchronous setting there are usually classes of nodes
+whose behavior are class-dependent. In the system we propose, there are four
+classes of processes: the model, the broker, the nameserver, and the worker. It
+is conceptually simpler to think of these as four different processes/programs
+and build each of them separately, rather than a single program that determines
+its behavoir based on its assigned communicator rank (as typically done in MPI).
+
 
 \section{System Architecture}
 As previously mentioned, our system consists of four different components.
@@ -312,6 +368,17 @@ Brokers can establish links with other brokers.
 \section{Related Work}
 
 \section{Conclusion}
+It can be tempting to think of system design as an all-or-nothing
+decision---either build a system with MPI or build a system using RPCs. An
+interesting avenue for future work is combining the two. Consider a workload
+whose core unit of work is amenable to an MPI-based system but the individual
+units of work are independent of eachother with the exception of possible
+boundary interactions. A combination of RPC and MPI communication might be
+ideal---using MPI within a single cluster to complete individual units of work
+and RPC to communicate between clusters. In this way, individual clusters become
+the workers of the system and can join and leave at will, while the broker
+backbone manages sending tasks to the individual clusters and returning their
+results to the model.
 
 \bibliographystyle{abbrv}
 \bibliography{/home/jhaj/research/bibliographies/bdl,
