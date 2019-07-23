@@ -33,7 +33,9 @@ message ConnectionRequest {
   string broker_id = 1;
 }
 
-message ConnectionResponse {}
+message ConnectionResponse {
+  string broker_id = 1;
+}
 
 message DisconnectRequest {
   string broker_id = 1;

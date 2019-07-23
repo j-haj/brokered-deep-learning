@@ -5,6 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -357,6 +359,10 @@ func (b *broker) Disconnect(ctx context.Context, req *pbBroker.DisconnectRequest
 		}
 		delete(b.associatedTasks, id)
 	}
+
+	if len(b.linkedBrokers) < *nAttemptedConnections {
+		go b.attemptConnections()
+	}
 	return nil, errors.New("Not implemented")
 }
 
@@ -525,19 +531,63 @@ func (b *broker) RequestTask(ctx context.Context, req *pbTask.TaskRequest) (*pbT
 // attemptConnections attempts to connect the broker with other brokers using an exponential backoff
 // that resets after an hour.
 func (b *broker) attemptConnections() {
-	//timeout := 0.0
+	
+	backoff := 0.0
+	count := 0
 	for {
-		// Wait
-
+		if len(b.linkedBrokers) > *nAttemptedConnections {
+			return
+		}
+		// Exponential backoff plus noise
+		<-time.After(time.Duration(backoff) * time.Second)
+		backoff = math.Max(1.0, math.Exp2(float64(count)) + rand.NormFloat64())
+		log.Debugf("current backoff: %v", backoff)
+		count++
+		
 		// Request broker from nameserver
+		ctx, cancel1 := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+		defer cancel1()
+		resp, err := b.nsClient.RequestBroker(ctx, &pbNS.BrokerRequest{Location: "any", Address: *brokerAddress})
+		if err != nil {
+			log.Errorf("Failed to request broker - %v", err)
+		}
 
-		// Attempt to
+		// Attempt to connect
+		brokerClient, err := newBrokerConnection(resp.GetAddress())
+		if err != nil {
+			log.WithFields(log.Fields{
+				"remote_address": resp.GetAddress(),
+				"error": err,
+			}).Error("failed to establish RPC connection.")
+			continue
+		}
+		ctx, cancel2 := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+		defer cancel2()
+		connResp, err := brokerClient.brokerClient.Connect(ctx, &pbBroker.ConnectionRequest{BrokerId: string(b.brokerId)})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"remote_address": resp.GetAddress(),
+				"error": err,
+			}).Error("connection request with remote broker failed.")
+			continue
+		}
+		b.mu.Lock()
+		b.linkedBrokers[brokerID(connResp.GetBrokerId())] = brokerClient
+		b.mu.Unlock()
+		log.WithFields(log.Fields{
+			"remote_address": resp.GetAddress(),
+			"local_address": *brokerAddress,
+		}).Info("Successfully establish broker-broker connection.")
 	}
 }
 
 // server contains the main-loop of the broker.
-func (b *broker) server() {
-
+func (b *broker) serve() {
+	for {
+		if len(b.linkedBrokers) < *nAttemptedConnections {
+			go b.attemptConnections()
+		}
+	}
 }
 
 func main() {
@@ -577,6 +627,7 @@ func main() {
 	pbMS.RegisterModelServiceServer(s, b)
 	pbTask.RegisterTaskServiceServer(s, b)
 	pbResult.RegisterResultServiceServer(s, b)
+	go b.serve()
 	if err != nil {
 		log.Fatalf("Failed to create broker - %v\n", err)
 	}

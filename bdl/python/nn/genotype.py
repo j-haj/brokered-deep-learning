@@ -31,18 +31,24 @@ class Population(object):
         self.offspring = []
 
     def generate_offspring(self):
-        new_pop = [x for x in self.population]
+        self.offspring = [x for x in self.population]
         # Create child population
         for i in range(self.n):
             idx = np.random.choice([j for j in range(self.n) if j != i])
-            new_pop += self.population[i].mate(self.population[idx])
-        assert len(new_pop) >= 2 * self.n
+            self.offspring += self.population[i].mate(self.population[idx])
+        assert len(self.offspring) >= 2 * self.n
 
-    def filter(self, new_population):
-        pass
+    def filter(self, filter_func):
+        assert callable(filter_func)
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self.i_iter < self.n:
+        if self.i_iter < len(self.offspring):
+            g = self.offspring[self.i_iter]
+            self.i_iter += 1
+            return g
+        else:
+            self.i_iter = 0
+            raise StopIteration

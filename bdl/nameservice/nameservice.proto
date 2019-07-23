@@ -26,7 +26,6 @@ message RegistrationResponse {
 
 message BrokerRequest {
   // Requested location of the broker.
-  string location = 1;
   string address = 2;
 }
 
