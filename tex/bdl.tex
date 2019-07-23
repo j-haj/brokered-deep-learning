@@ -125,16 +125,28 @@ last layer.
 \begin{algorithm}
   \caption{High-level outline of evolutionary algorithm.}\label{alg:evo-simple}
   \begin{algorithmic}[1]
-    \Procedure{MutateNetwork}{}
-    \State $\texttt{layer} \gets
-    \texttt{RandomChoice}(\texttt{available\_layers})$
-    \State $\texttt{this.layers.append(layer)}$
-    \State $\texttt{this.connections.addRandomConnection}$
-    \While {\textbf{not} $\texttt{this.nn.isConnected()}$}
-    \State \text{Pick random layer and connect to last layer}
-    \EndWhile
-    \State \textbf{return} \texttt{GenerateNetwork(this.layers)}
-    \EndProcedure
+    \Procedure{ProduceOffsprint}{$N_1, N_2$}
+    \If{$|N_1| \neq |N_2|$}
+    \State $o_1\gets N_1.\texttt{mutate()}$
+    \State $o_2 \gets N_2.\texttt{mutate()}$
+    \State \textbf{return } \texttt{ReturnFittest}$(o_1, o_2)$
+    \EndIf
+    \State $o \gets N_1.\texttt{crossover}(N_2)$
+    \State \textbf{return } $o.\texttt{mutate()}$
+  \EndProcedure
+  \Procedure{Mutate}{}
+  \State \emph{// Possibly append layer}
+  \If{$\texttt{sampleUniform(0, 1)} < \texttt{append\_p}$}
+  \State \texttt{self.layers.append}(\texttt{randomLayer()})
+  \EndIf
+  \State \emph{// Possibly add connection}
+  \If{$\texttt{sampleUniform}(0, 1) < \texttt{conn\_p}$}
+  \State $n_{\text{conn}} \gets \texttt{UniformInt}(0, \texttt{self.n\_layers})$
+  \For{$i = 0 \text{ to } n_{\text{conn}}$}
+  \State Add random connection
+  \EndFor
+  \EndIf
+  \EndProcedure
   \end{algorithmic}
 \end{algorithm}
 
@@ -169,12 +181,12 @@ responsible for constructing the \texttt{HeartbeatMsg}.
 \begin{figure}
   \begin{lstlisting}
 service Heartbeat {
-  rpc SendHeartbeat(HeartbeatMsg) returns (HeartbeatResp) {}
+  rpc SendHeartbeat(Heartbeat) returns (HBResp) {}
 }
-message HeartbeatMsg {
+message Heartbeat {
   string id = 1;
 }
-message HeartbeatResp {}
+message HBResp {}
 \end{lstlisting}
 \caption{Example gRPC service definition of a heartbeat service.}
 \label{fig:heartbeat}
