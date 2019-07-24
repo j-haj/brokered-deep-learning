@@ -83,7 +83,7 @@ class SimpleNN(nn.Module):
     def forward(self, x):
         for l in self.layers:
             x = F.relu(l(x))
-        return x
+        return F.log_softmax(x, dim=1)
     
 class SimpleEvo(object):
     def __init__(self, max_num_layers):
