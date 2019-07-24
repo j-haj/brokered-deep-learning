@@ -30,7 +30,7 @@ class SimpleNN(nn.Module):
     def build_model(self):
         for k in range(self.n_modules):
             for (i, l) in enumerate(self.layer_descriptions):
-                i += k * len(self.layer_descriptions)
+                i += k * (len(self.layer_descriptions) + 1)
                 if l.layer_type == LayerType.CONV_3x3:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      l.filter_size,
@@ -56,7 +56,6 @@ class SimpleNN(nn.Module):
                 else:
                     raise ValueError("{} - unknown layer type".format(l))
                 self.out_channels.append(l.filter_size)
-            self.out_channels.append(l.filter_size)
             self.layers.append(nn.Conv2d(self.out_channels[-1],
                                              2*self.out_channels[-1],
                                              1))
@@ -70,6 +69,7 @@ class SimpleNN(nn.Module):
     def forward(self, x):
         for l in self.layers:
             x = l(x)
+            print("layer: {}\tx.size: {}".format(l, x.size()))
         n_param = np.product(x.size())
         x = x.view(-1, n_param)
         self.layers.append(nn.Linear(n_param, n_param//2))

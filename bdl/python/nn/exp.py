@@ -6,29 +6,16 @@ from classification import SimpleEvo, SimpleNN
 from data import mnist_loaders
 
 def main():
-    pop = [SimpleEvo(5), SimpleEvo(5)]
-    print("initial: {}".format(pop))
-    for p in pop:
-        p.mutate()
-        print(p)
-
-    print("Initial mutation done.")
-    print(pop[0].mate(pop[1]))
-
-    for gen in range(3):
-        new_pop = [p for p in pop]
-        for (i, p) in enumerate(pop):
-            idx = np.random.choice([j for j in range(len(pop)) if j != i])
-            new_pop += p.mate(pop[idx])
-        pop = new_pop
-        print("generation {}: pop: {}".format(gen, pop))
+    t = torch.rand(1, 500, 500).unsqueeze(0)
 
     s1 = SimpleEvo(5)
     for _ in range(5):
         s1.mutate()
 
-    nn = SimpleNN(1, 10, s1.layers)
-    nn.build()
+    nn = SimpleNN(1, 10, s1.layers, 5)
+    nn.build_model()
+
+    nn(t)
     nn.to("cuda")
     train_loader, test_loader = mnist_loaders(64)
 
