@@ -10,79 +10,71 @@ import torch.optim as optim
 
 from torchvision import datasets, transforms
 from genotype import Genotype
+from layer import LayerType, Layer
 
-class LayerType(Enum):
-    LAYER_3x3 = "3x3conv"
-    LAYER_3x1_1x3 = "3x1conv-1x3conv"
-    LAYER_5x5 = "5x5conv"
-    LAYER_5x1_1x5 = "5x1conv-1x5conv"
-    REDUCTION = "reduction"
-
-_LAYER_TYPES = [LayerType.LAYER_3x3, LayerType.LAYER_3x1_1x3,
-                LayerType.LAYER_5x5, LayerType.LAYER_5x1_1x5,
-                LayerType.REDUCTION]
+_LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
+                LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
 _FILTER_SIZES = [10, 50, 100]
 
 
-class Layer(object):
-    def __init__(self, layer_type, filter_size):
-        self.layer_type = layer_type
-        self.filter_size = filter_size
-
-    def __repr__(self):
-        if self.layer_type == LayerType.REDUCTION:
-            return "Layer(Reduction)"
-        return "Layer({}x{})".format(self.layer_type.value, self.filter_size)
-
 class SimpleNN(nn.Module):
-    def __init__(self, input_channels, output_size, layers):
+    def __init__(self, input_channels, output_size, layers, n_modules):
         super(SimpleNN, self).__init__()
         self.input_size = input_channels
         self.output_size = output_size
+        self.n_modules = n_modules
         self.layer_descriptions = layers
         self.layers = []
         self.out_channels = [input_channels]
 
-    def build(self):
-        for (i, l) in enumerate(self.layer_descriptions):
-            if l.layer_type == LayerType.LAYER_3x3:
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             l.filter_size,
-                                             3))
-            elif l.layer_type == LayerType.LAYER_3x1_1x3:
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             self.out_channels[i],
-                                             (3,1)))
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             l.filter_size,
-                                             (1,3)))
-            elif l.layer_type == LayerType.LAYER_5x5:
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             l.filter_size,
-                                             5))
-            elif l.layer_type == LayerType.LAYER_5x1_1x5:
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             self.out_channels[i],
-                                             (5,1)))
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             l.filter_size,
-                                             (1, 5)))
-            elif l.layer_type == LayerType.REDUCTION:
-                self.layers.append(nn.Conv2d(self.out_channels[i],
-                                             2*self.out_channels[i],
-                                             1))
-                self.layers.append(nn.MaxPool2d((3,3), stride=2))
-            else:
-                raise ValueError("{} - unknown layer type".format(l))
+    def build_model(self):
+        for k in range(self.n_modules):
+            for (i, l) in enumerate(self.layer_descriptions):
+                i += k * len(self.layer_descriptions)
+                if l.layer_type == LayerType.CONV_3x3:
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     l.filter_size,
+                                                     3))
+                elif l.layer_type == LayerType.CONV_3x1_1x3:
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     self.out_channels[i],
+                                                     (3,1)))
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     l.filter_size,
+                                                     (1,3)))
+                elif l.layer_type == LayerType.CONV_5x5:
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     l.filter_size,
+                                                     5))
+                elif l.layer_type == LayerType.CONV_5x1_1x5:
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     self.out_channels[i],
+                                                     (5,1)))
+                    self.layers.append(nn.Conv2d(self.out_channels[i],
+                                                     l.filter_size,
+                                                     (1, 5)))
+                else:
+                    raise ValueError("{} - unknown layer type".format(l))
+                self.out_channels.append(l.filter_size)
             self.out_channels.append(l.filter_size)
+            self.layers.append(nn.Conv2d(self.out_channels[-1],
+                                             2*self.out_channels[-1],
+                                             1))
+            o = self.out_channels[-1] * 2
+            self.layers.append(nn.MaxPool2d((3,3), stride=2))
+            self.out_channels.append(o)
+            self.layers.append(F.relu)
 
-        # Append output layers
-        last = self.layer_descriptions[-1]
-        print(self.layers)
+
 
     def forward(self, x):
         for l in self.layers:
-            x = F.relu(l(x))
+            x = l(x)
+        n_param = np.product(x.size())
+        x = x.view(-1, n_param)
+        self.layers.append(nn.Linear(n_param, n_param//2))
+        x = self.layers[-1](x)
+        self.layers.append(nn.Linear(n_param//2, self.output_size))
         return F.log_softmax(x, dim=1)
     
 class SimpleEvo(object):
