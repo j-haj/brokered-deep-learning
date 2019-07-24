@@ -29,7 +29,7 @@ def main():
     nn = SimpleNN(3, 10, s1.layers)
     nn.build()
 
-    t = torch.rand(3, 500, 500)
+    t = torch.rand(3, 500, 500).unsqueeze(0)
     print(t)
     print(nn.forward(t))
     
