@@ -1,6 +1,8 @@
 import numpy as np
+import torch
 
 from classification import SimpleEvo, SimpleNN
+
 
 def main():
     pop = [SimpleEvo(5), SimpleEvo(5)]
@@ -26,6 +28,10 @@ def main():
 
     nn = SimpleNN(3, 10, s1.layers)
     nn.build()
+
+    t = torch.rand(3, 500, 500)
+    print(t)
+    print(nn.forward(t))
     
 if __name__ == "__main__":
     main()

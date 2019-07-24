@@ -79,7 +79,11 @@ class SimpleNN(nn.Module):
         # Append output layers
         last = self.layer_descriptions[-1]
         print(self.layers)
-        
+
+    def forward(self, x):
+        for l in self.layers:
+            x = F.relu(l(x))
+        return x
     
 class SimpleEvo(object):
     def __init__(self, max_num_layers):
