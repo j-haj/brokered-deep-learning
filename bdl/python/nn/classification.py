@@ -45,31 +45,31 @@ class SimpleNN(nn.Module):
                     self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_3x1_1x3:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     self.out_channels[i],
-                                                     (3,1),
-                                                     padding=2))
+                                                 self.out_channels[i],
+                                                 (3,1),
+                                                 padding=2))
                     self.trainable_layers.append(self.layers[-1])
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     l.filter_size,
-                                                     (1,3),
-                                                     padding=2))
+                                                l.filter_size,
+                                                 (1,3),
+                                                 padding=2))
                     self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_5x5:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     l.filter_size,
-                                                     5,
-                                                     padding=4))
+                                                 l.filter_size,
+                                                 5,
+                                                 padding=4))
                     self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_5x1_1x5:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     self.out_channels[i],
-                                                     (5,1),
-                                                     padding=4))
+                                                 self.out_channels[i],
+                                                 (5,1),
+                                                 padding=4))
                     self.trainable_layers.append(self.layers[-1])
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     l.filter_size,
-                                                     (1, 5),
-                                                     padding=4))
+                                                 l.filter_size,
+                                                 (1, 5),
+                                                 padding=4))
                     self.trainable_layers.append(self.layers[-1])
                 else:
                     raise ValueError("{} - unknown layer type".format(l))
@@ -103,7 +103,7 @@ class SimpleNN(nn.Module):
         for l in self.out_layers:
             x = l(x)
         return F.log_softmax(x, dim=1)
-    
+
 class SimpleEvo(object):
     def __init__(self, max_num_layers):
         self.max_num_layers = max_num_layers
@@ -116,7 +116,7 @@ class SimpleEvo(object):
 
     def __len__(self):
         return len(self.layers)
-        
+
     def mutate(self):
         global _LAYER_TYPES
         global _FILTER_SIZES
@@ -139,7 +139,7 @@ class SimpleEvo(object):
         for i in range(idx, len(self)):
             o.layers[i] = other.layers[i]
         return o
-    
+
     def mate(self, other):
         if len(self) != len(other):
             return [self.clone().mutate(), other.clone().mutate()]
@@ -153,7 +153,7 @@ class SimpleEvo(object):
         out = "[IN]{}[OUT]".format(
             "".join([str(l) for l in self.layers]))
         return out
-    
+
 class EvoNet(object):
 
     def __init__(self, max_num_layers, mutation_p, crossover_p):
@@ -200,7 +200,7 @@ class EvoNet(object):
             for j in range(idx, len(o.layers)):
                 o.connections[i, j] = other.connections[i, j]
         return o
-        
+
     def mate(self, other):
         """Produces either one or two offspring depending on whether
         self and other have the same number of layers. If they do
@@ -225,5 +225,3 @@ class EvoNet(object):
         out = "[IN]{}[OUT]".format(
             "".join(["["+l.value+"]" for l in self.layers]))
         return out
-
-

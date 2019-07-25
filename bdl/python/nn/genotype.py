@@ -24,10 +24,10 @@ class Genotype(object):
 
 class Population(object):
 
-    def __init__(self, n):
+    def __init__(self, n, builder):
         self.n = n
         self.i_iter = 0
-        self.population = [Genotype(EvoNet()) for _ in range(n)]
+        self.population = [Genotype(builder.build()) for _ in range(n)]
         self.offspring = []
 
     def generate_offspring(self):
