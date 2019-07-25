@@ -19,6 +19,8 @@ from result import result_pb2
 from result import result_pb2_grpc
 from task_service import task_service_pb2
 
+from result.result import NetworkResult
+
 class Result():
     def __init__(self, task_id, result_obj):
         self.task_id = task_id
