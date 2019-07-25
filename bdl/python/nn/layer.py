@@ -14,6 +14,4 @@ class Layer(object):
         self.filter_size = filter_size
 
     def __repr__(self):
-        if self.layer_type == LayerType.REDUCTION:
-            return "Layer(Reduction)"
         return "Layer({}x{})".format(self.layer_type.value, self.filter_size)

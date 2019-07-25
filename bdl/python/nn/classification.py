@@ -14,67 +14,94 @@ from layer import LayerType, Layer
 
 _LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
                 LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
-_FILTER_SIZES = [10, 50, 100]
+_FILTER_SIZES = [5, 10, 20]
 
 
 class SimpleNN(nn.Module):
-    def __init__(self, input_channels, output_size, layers, n_modules):
+    def __init__(self, tensor_shape, output_size, layers, n_modules):
         super(SimpleNN, self).__init__()
-        self.input_size = input_channels
+        self.tensor_shape = tensor_shape
         self.output_size = output_size
         self.n_modules = n_modules
         self.layer_descriptions = layers
         self.layers = []
-        self.out_channels = [input_channels]
+        self.out_layers = []
+        self.out_channels = [tensor_shape[0]]
+        self.trainable_layers = []
+        self._n_param = 0
+        self._build_model()
+        x = torch.rand(tensor_shape).unsqueeze(0)
+        self.__test_forward_and_finalize(x)
 
-    def build_model(self):
+    def _build_model(self):
         for k in range(self.n_modules):
             for (i, l) in enumerate(self.layer_descriptions):
                 i += k * (len(self.layer_descriptions) + 1)
                 if l.layer_type == LayerType.CONV_3x3:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
-                                                     l.filter_size,
-                                                     3))
+                                                 l.filter_size,
+                                                 3,
+                                                 padding=2))
+                    self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_3x1_1x3:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      self.out_channels[i],
-                                                     (3,1)))
+                                                     (3,1),
+                                                     padding=2))
+                    self.trainable_layers.append(self.layers[-1])
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      l.filter_size,
-                                                     (1,3)))
+                                                     (1,3),
+                                                     padding=2))
+                    self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_5x5:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      l.filter_size,
-                                                     5))
+                                                     5,
+                                                     padding=4))
+                    self.trainable_layers.append(self.layers[-1])
                 elif l.layer_type == LayerType.CONV_5x1_1x5:
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      self.out_channels[i],
-                                                     (5,1)))
+                                                     (5,1),
+                                                     padding=4))
+                    self.trainable_layers.append(self.layers[-1])
                     self.layers.append(nn.Conv2d(self.out_channels[i],
                                                      l.filter_size,
-                                                     (1, 5)))
+                                                     (1, 5),
+                                                     padding=4))
+                    self.trainable_layers.append(self.layers[-1])
                 else:
                     raise ValueError("{} - unknown layer type".format(l))
                 self.out_channels.append(l.filter_size)
             self.layers.append(nn.Conv2d(self.out_channels[-1],
                                              2*self.out_channels[-1],
                                              1))
+            self.trainable_layers.append(self.layers[-1])
             o = self.out_channels[-1] * 2
             self.layers.append(nn.MaxPool2d((3,3), stride=2))
             self.out_channels.append(o)
             self.layers.append(F.relu)
+        self.trainable_layers = nn.ModuleList(self.trainable_layers)
 
-
+    def __test_forward_and_finalize(self, x):
+        for l in self.layers:
+            x = l(x)
+        self._n_param = np.product(x.size())
+        x = x.view(-1, self._n_param)
+        self.out_layers.append(nn.Linear(self._n_param, self._n_param//2))
+        self.trainable_layers.append(self.out_layers[-1])
+        x = self.out_layers[-1](x)
+        self.out_layers.append(nn.Linear(self._n_param//2, self.output_size))
+        self.trainable_layers.append(self.out_layers[-1])
+        self.trainable_layers = nn.ModuleList(self.trainable_layers)
 
     def forward(self, x):
         for l in self.layers:
             x = l(x)
-            print("layer: {}\tx.size: {}".format(l, x.size()))
-        n_param = np.product(x.size())
-        x = x.view(-1, n_param)
-        self.layers.append(nn.Linear(n_param, n_param//2))
-        x = self.layers[-1](x)
-        self.layers.append(nn.Linear(n_param//2, self.output_size))
+        x = x.view(-1, self._n_param)
+        for l in self.out_layers:
+            x = l(x)
         return F.log_softmax(x, dim=1)
     
 class SimpleEvo(object):
