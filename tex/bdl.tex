@@ -252,6 +252,17 @@ and will cause idle resources as the faster nodes wait for the slowest node to
 finish. In the asynchronous setting, the faster nodes can continue to process
 work. This scenario was a motivation for [DIST DEEP LEARNING PAPER].
 
+Another short-comig of RPC is message size limitations. This can be particularly
+troublesome in distributed machine learning settings where highly parameterized
+models such as deep neural networks are sent across the network. The solution
+is to send a representation of the model, rahter than the model itself, across
+the network. The advantage of this approach is reduced network bandwidth
+utilization. The disadvantage of course is the loss of trained models at the
+worker nodes. In practice, this may not be a major issue as final model
+architectures are typically trained in a specialized manner (e.g., for a large
+number of epochs). Additionally, models can be saved to a distributed filesystem
+such as HDFS.
+
 Of course,
 MPI does offer asynchronous communication, but it is not as flexible as that of
 RPC-based systems. In an asynchronous setting there are usually classes of nodes
