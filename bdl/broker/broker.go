@@ -392,6 +392,10 @@ func (b *broker) SendResult(ctx context.Context, req *pbResult.Result) (*pbResul
 
 	tid := task.TaskID(req.GetTaskId())
 	destination := req.GetDestination()
+	log.WithFields(log.Fields{
+		"destination": destination,
+		"task_id": tid,
+	}).Debug("Received result from worker.")
 	if _, ok := b.processingTasks[tid]; !ok {
 		// If the task is not in processing tasks then we should
 		// drop the result

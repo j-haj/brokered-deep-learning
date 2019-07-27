@@ -10,15 +10,15 @@ class LayerType(Enum):
 
     @staticmethod
     def from_string(s):
-        if s == "33":
+        if s.startswith("33"):
             return LayerType.CONV_3x3
-        elif s == "3113":
+        elif s.startswith("3113"):
             return LayerType.CONV_3x1_1x3
-        elif s == "55":
+        elif s.startswith("55"):
             return LayerType.CONV_5x5
-        elif s == "5115":
+        elif s.startswith("5115"):
             return LayerType.CONV_5x1_1x5
-        elif s == "11":
+        elif s.startswith("11"):
             return LayerType.CONV_1x1
         else:
             raise ValueError("Unrecognized layer string: %s" % s)
@@ -53,6 +53,8 @@ def layers_from_string(s):
     layers = []
     layer_strs = s.split(",")
     for ls in layer_strs:
+        if ls == "":
+            continue
         layers.append(Layer.from_string(ls))
 
     return layers

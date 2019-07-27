@@ -5,15 +5,21 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from nn.data import mnist_loaders, Dataset
+from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, Dataset
 from nn.classification import SimpleNN
+from nn.layer import LayerType, layers_from_string
 from result.result import NetworkResult
 
-_TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28)}
+
+_TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
+                 Dataset.FASHION_MNIST: (1, 28, 28),
+                 Dataset.CIFAR10: (3, 32, 32)}
 
 class NetworkTask(object):
     def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=1000):
-        self.model = SimpleNN(_TENSOR_SHAPE[dataset], 10, model.layers, 3)
+        self.model = None
+        self.tensor_shape = _TENSOR_SHAPE[dataset]
+        self.layers = model
         self.dataset = dataset
         self.batch_size = batch_size
         self.n_epochs = n_epochs
@@ -22,8 +28,12 @@ class NetworkTask(object):
         self.device = torch.device("cuda" if have_cuda else "cpu")
         self.kwargs = {"num_workers": 1, "pin_memory": True} if have_cuda else {}
 
+    def build_model(self):
+        self.model = SimpleNN(self.tensor_shape, 10, self.layers, 3)
+        
     def run(self):
         train_loader, val_loader = self.get_data()
+        self.build_model()
         self.model.to(self.device)
         optimizer = optim.Adam(self.model.parameters())
         for epoch in range(self.n_epochs):
@@ -37,6 +47,9 @@ class NetworkTask(object):
         if self.dataset == Dataset.MNIST:
             train_loader, val_loader, _ = mnist_loaders(self.batch_size,
                                                         **self.kwargs)
+        elif self.dataset == Dataset.FASHION_MNIST:
+            train_loader, val_loader, _ = fashion_mnist_loaders(self.batch_size,
+                                                                **self.kwargs)
         elif self.dataset == Dataset.CIFAR10:
             train_loader, val_loader, _ = cifar10_loaders(self.batch_size,
                                                           **self.kwargs)

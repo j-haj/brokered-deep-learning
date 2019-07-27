@@ -27,7 +27,7 @@ func (q *TaskQueue) Push(t *pbTask.Task) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	tn := &taskNode{nil, task.TaskID(t.GetTaskId()), t}
-	if q.head == nil && q.tail == nil {
+	if q.size == 0 {
 		q.head = tn
 		q.tail = q.head
 	} else {
@@ -60,6 +60,11 @@ func (q *TaskQueue) Pop() (*pbTask.Task, error) {
 	t := q.head
 	q.head = q.head.next
 	q.size--
+
+	if q.size == 0 {
+		q.head = nil
+		q.tail = nil
+	}
 	return t.data, nil
 }
 

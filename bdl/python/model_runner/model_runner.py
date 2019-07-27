@@ -32,13 +32,14 @@ class ModelRunner():
         self.result_tracker = {}
         self.max_generations = max_generations
         self.counter = 0
+        self.accuracies = []
 
     def _next_task_id(self):
         tid = "{}#{}".format(self.model_address, self.counter)
         self.counter += 1
         return tid
 
-    def _process_results(self, expected_n_results, timeout):
+    def _process_results(self, generation, expected_n_results, timeout):
         """Processes the results in the result_servicer's queue. Returns
         if timeout is reached.
 
@@ -63,7 +64,14 @@ class ModelRunner():
             g.set_fitness(result.result_obj.accuracy())
             logging.debug("Result accuracy {}".format(result.result_obj.accuracy()))
             # Remove tid from dictionary
+            self.accuracies.append([generation, g.fitness(), g.model()])
             self.result_tracker.pop(tid, None)
+
+    def save_results(self, path="model_results.csv"):
+        with open(path, "a") as f:
+            for r in self.accuracies:
+                f.write("{},{:.8f},{}\n".format(r[0], r[1], r[2]))
+        self.results = []
 
     def run(self):
         for generation in range(self.max_generations):
@@ -74,12 +82,16 @@ class ModelRunner():
 
             # Evaluate candidate networks by sending network tasks to broker
             # for distribution to workers
-            logging.debug("Sending {} models for evaluation.".format(len(self.population.offspring)))
+            sent_models = len(self.population.offspring)
+            logging.debug("Sending {} models for evaluation.".format(sent_models))
             for g in self.population:
                 
                 if g.is_evaluated():
+                    sent_models -= 1
+                    self.accuracies.append([generation, g.fitness(), g.model()])
+                    logging.debug("Skipping a previously evaluated model")
                     continue
-                m = NetworkTask(g.model(), Dataset.MNIST, 128, n_epochs=2)
+                m = NetworkTask(g.model().to_string(), Dataset.FASHION_MNIST, 128, n_epochs=2)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,
@@ -89,12 +101,14 @@ class ModelRunner():
                 self.broker_client.send_task(t)
                 logging.debug("Sent task %s." % t.task_id)
                 self.result_tracker[t.task_id] = g
-                time.sleep(.5)
 
             # Process results from result servicer with a timeout of
             # 5 minutes per result
+            if len(self.accuracies) > 0:
+                logging.debug("Saving accuracies to file.")
+                self.save_results()
             logging.debug("Waiting for results.")
-            self._process_results(len(self.population.offspring), 5*60)
+            self._process_results(generation, sent_models, 5*60)
 
             # Update population using tournament selection
             keepers = []
