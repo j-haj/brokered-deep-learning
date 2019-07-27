@@ -3,6 +3,8 @@ import pickle
 import sys
 import time
 
+import numpy as np
+
 from broker_client.broker_client import BrokerClient
 from nn.classification import SimpleEvo, SimpleNN
 from nn.genotype import Population

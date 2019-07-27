@@ -10,7 +10,7 @@ import torch.optim as optim
 
 from torchvision import datasets, transforms
 from nn.genotype import Genotype
-from nn.layer import LayerType, Layer
+from nn.layer import LayerType, Layer, layers_from_string
 
 _LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
                 LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
@@ -23,7 +23,7 @@ class SimpleNN(nn.Module):
         self.tensor_shape = tensor_shape
         self.output_size = output_size
         self.n_modules = n_modules
-        self.layer_descriptions = layers
+        self.layer_descriptions = layers_from_string(layers)
         self.layers = []
         self.out_layers = []
         self.out_channels = [tensor_shape[0]]
@@ -149,6 +149,10 @@ class SimpleEvo(object):
         offspring.mutate()
         return [offspring]
 
+    def to_string(self):
+        return ",".join(["{}:{}".format(l.layer_type.value,
+                                       l.filter_size)
+                         for l in self.layers])
 
     def __repr__(self):
         out = "[IN]{}[OUT]".format(
