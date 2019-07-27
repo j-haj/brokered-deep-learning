@@ -53,7 +53,7 @@ func (q *TaskQueue) PushFront(t *pbTask.Task) {
 // Pop returns the task at the front of the queue or an error if the queue is empty.
 func (q *TaskQueue) Pop() (*pbTask.Task, error) {
 	q.mu.Lock()
-	q.mu.Unlock()
+	defer q.mu.Unlock()
 	if q.size == 0 {
 		return nil, errors.New("cannot pop from an empty queue")
 	}

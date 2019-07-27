@@ -10,7 +10,9 @@ class BrokerClient():
 
     def __init__(self, broker_address):
         self.broker_address = broker_address
-        self.channel = grpc.insecure_channel(broker_address)
+        options = [("grpc.max_send_message_length", 100 * 1024 * 1024),
+                   ("grpc.max_receive_message_length", 100 * 1024 * 1024)]        
+        self.channel = grpc.insecure_channel(broker_address, options=options)
         self.client = model_service_pb2_grpc.ModelServiceStub(self.channel)
 
     def register(self, address):

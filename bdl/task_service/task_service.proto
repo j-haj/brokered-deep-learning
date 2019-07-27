@@ -9,6 +9,8 @@ service TaskService {
 }
 
 message Task {
+  // task_id should be the source address followed by an identifier
+  // for example "localhost:1000#1"
   string task_id = 1;
   string source = 2;
   bytes task_obj = 3;

@@ -135,6 +135,7 @@ type broker struct {
 	// maxBorrowedCapacity is the number of shared tasks the broker is willing to accept
 	maxBorrowedCapacity int
 
+	attemptingConnections bool
 	mu sync.Mutex
 }
 
@@ -321,6 +322,10 @@ func (b *broker) Connect(ctx context.Context, req *pbBroker.ConnectionRequest) (
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	id := brokerID(req.GetBrokerId())
+	if _, ok := b.linkedBrokers[id]; ok {
+		log.Debugf("Already connected with broker %s", id)
+		return &pbBroker.ConnectionResponse{}, nil
+	}
 	address := strings.Split(req.GetBrokerId(), "#")[0]
 
 	c, err := newBrokerConnection(address)
@@ -517,13 +522,12 @@ func (b *broker) SendTask(ctx context.Context, req *pbTask.Task) (*pbMS.SendResp
 func (b *broker) RequestTask(ctx context.Context, req *pbTask.TaskRequest) (*pbTask.Task, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	log.Debug("Received task request - sending task.")
 	t, err := b.queuedTasks.Pop()
-
 	if err != nil {
-		log.Debug("Failed to pop from task queue")
+		log.Debugf("Failed to pop from task queue - %s", err)
 		return &pbTask.Task{TaskId: "", Source: ""}, err
 	}
+	log.Debugf("Received task request - sending task %s.", t.GetTaskId())	
 	b.processingTasks[task.TaskID(t.GetTaskId())] = newTask(b.brokerId, t)
 	return t, nil
 }
@@ -531,6 +535,13 @@ func (b *broker) RequestTask(ctx context.Context, req *pbTask.TaskRequest) (*pbT
 // attemptConnections attempts to connect the broker with other brokers using an exponential backoff
 // that resets after an hour.
 func (b *broker) attemptConnections() {
+	b.mu.Lock()
+	b.attemptingConnections = true
+	b.mu.Unlock()
+	defer func() {
+		log.Debug("Done attempting connections.")
+		b.attemptingConnections = false
+	}()
 	
 	backoff := 0.0
 	count := 0
@@ -545,11 +556,17 @@ func (b *broker) attemptConnections() {
 		count++
 		
 		// Request broker from nameserver
-		ctx, cancel1 := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+		ctx, cancel1 := context.WithTimeout(context.Background(),
+			time.Duration(*timeout) * time.Second)
 		defer cancel1()
-		resp, err := b.nsClient.RequestBroker(ctx, &pbNS.BrokerRequest{Location: "any", Address: *brokerAddress})
+		resp, err := b.nsClient.RequestBroker(ctx,
+			&pbNS.BrokerRequest{Location: "any", Address: *brokerAddress})
 		if err != nil {
 			log.Errorf("Failed to request broker - %v", err)
+			continue
+		} else if resp.GetAddress() == "" {
+			log.Error("Received empty broker address from nameserver.")
+			continue
 		}
 
 		// Attempt to connect
@@ -561,9 +578,9 @@ func (b *broker) attemptConnections() {
 			}).Error("failed to establish RPC connection.")
 			continue
 		}
-		ctx, cancel2 := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
+		ctx2, cancel2 := context.WithTimeout(context.Background(), time.Duration(*timeout) * time.Second)
 		defer cancel2()
-		connResp, err := brokerClient.brokerClient.Connect(ctx, &pbBroker.ConnectionRequest{BrokerId: string(b.brokerId)})
+		connResp, err := brokerClient.brokerClient.Connect(ctx2, &pbBroker.ConnectionRequest{BrokerId: string(b.brokerId)})
 		if err != nil {
 			log.WithFields(log.Fields{
 				"remote_address": resp.GetAddress(),
@@ -584,9 +601,10 @@ func (b *broker) attemptConnections() {
 // server contains the main-loop of the broker.
 func (b *broker) serve() {
 	for {
-		if len(b.linkedBrokers) < *nAttemptedConnections {
+		if len(b.linkedBrokers) < *nAttemptedConnections && !b.attemptingConnections {
 			go b.attemptConnections()
 		}
+		<-time.After(60 * time.Second)
 	}
 }
 
@@ -617,7 +635,8 @@ func main() {
 		"address": *brokerAddress,
 	}).Info("Broker listening.")
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.MaxRecvMsgSize(500 * 1024 * 1024),
+		grpc.MaxSendMsgSize(500 * 1024 * 1024))
 	
 	types := []string{"cpu"}
 	b, err := NewBroker(10, types)
@@ -627,6 +646,7 @@ func main() {
 	pbMS.RegisterModelServiceServer(s, b)
 	pbTask.RegisterTaskServiceServer(s, b)
 	pbResult.RegisterResultServiceServer(s, b)
+	pbBroker.RegisterInterBrokerCommServer(s, b)
 	go b.serve()
 	if err != nil {
 		log.Fatalf("Failed to create broker - %v\n", err)

@@ -1,5 +1,8 @@
 import logging
 
+import numpy as np
+
+
 class Genotype(object):
 
     def __init__(self, model):
@@ -20,8 +23,14 @@ class Genotype(object):
         self._fitness = f
 
     def mate(self, other):
-        return self._model.mate(other._model)
+        return [Genotype(m) for m in self._model.mate(other._model)]
 
+    def model(self):
+        return self._model
+    
+    def __repr__(self):
+        return str(self._model)
+    
 class Population(object):
 
     def __init__(self, n, builder):
@@ -38,13 +47,24 @@ class Population(object):
             self.offspring += self.population[i].mate(self.population[idx])
         assert len(self.offspring) >= 2 * self.n
 
-    def filter(self, filter_func):
-        assert callable(filter_func)
+    def update_population(self, new_population):
+        self.population = new_population
+        self.offspring = []
+
+    def should_be_pared(self):
+        return len(self.population) > self.n
+
+    def max_fitness(self):
+        m = -1*float("inf")
+        for p in self.population:
+            if p.fitness() > m:
+                m = p.fitness()
+        return m
 
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.i_iter < len(self.offspring):
             g = self.offspring[self.i_iter]
             self.i_iter += 1
@@ -52,3 +72,5 @@ class Population(object):
         else:
             self.i_iter = 0
             raise StopIteration
+
+        

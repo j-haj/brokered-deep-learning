@@ -7,7 +7,7 @@ class Dataset(Enum):
     CIFAR10 = "cifar10"
 
 def mnist_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
-    train_set = dataset.MNIST("../data", train=True, download=True,
+    train_set = datasets.MNIST("../data", train=True, download=True,
                               transform=transforms.Compose([
                                   transforms.ToTensor(),
                                   transforms.Normalize((0.1307,), (0.3081,))

@@ -9,8 +9,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from torchvision import datasets, transforms
-from genotype import Genotype
-from layer import LayerType, Layer
+from nn.genotype import Genotype
+from nn.layer import LayerType, Layer
 
 _LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
                 LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
@@ -134,6 +134,7 @@ class SimpleEvo(object):
 
     def crossover(self, other):
         assert len(self) == len(other)
+        assert len(self) >= 2
         idx = np.random.randint(len(self.layers))
         o = self.clone()
         for i in range(idx, len(self)):
@@ -141,7 +142,7 @@ class SimpleEvo(object):
         return o
 
     def mate(self, other):
-        if len(self) != len(other):
+        if len(self) != len(other) or len(self) < 2:
             return [self.clone().mutate(), other.clone().mutate()]
 
         offspring = self.crossover(other)
@@ -192,7 +193,7 @@ class EvoNet(object):
 
     def crossover(self, other):
         assert len(self.layers) == len(other.layers)
-        assert self.shape == other.shape
+        assert len(self.layers) >= 2
         o = self.clone()
         idx = np.random.randint(0, len(self.layers))
         for i in range(idx, len(o.layers)):
@@ -214,7 +215,7 @@ class EvoNet(object):
         Returns:
         An array containing the offspring.
         """
-        if len(self.layers) != len(other.layers):
+        if len(self.layers) != len(other.layers) or len(self.layers) < 2:
             return [self.clone().mutate(), other.clone().mutate()]
 
         offspring = self.crossover(other)

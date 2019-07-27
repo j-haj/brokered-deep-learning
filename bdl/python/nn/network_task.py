@@ -6,14 +6,16 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from nn.data import mnist_loaders, Dataset
+from nn.classification import SimpleNN
 from result.result import NetworkResult
 
-
+_TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28)}
 
 class NetworkTask(object):
-    def __init__(self, model, dataset, n_epochs=5, log_interval=1000):
-        self.model = model
+    def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=1000):
+        self.model = SimpleNN(_TENSOR_SHAPE[dataset], 10, model.layers, 3)
         self.dataset = dataset
+        self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.log_interval = log_interval
         have_cuda = torch.cuda.is_available()
@@ -22,6 +24,7 @@ class NetworkTask(object):
 
     def run(self):
         train_loader, val_loader = self.get_data()
+        self.model.to(self.device)
         optimizer = optim.Adam(self.model.parameters())
         for epoch in range(self.n_epochs):
             self.train(train_loader, optimizer, epoch)
@@ -32,9 +35,11 @@ class NetworkTask(object):
 
     def get_data(self):
         if self.dataset == Dataset.MNIST:
-            train_loader, val_loader, _ = mnist_loaders(**self.kwargs)
+            train_loader, val_loader, _ = mnist_loaders(self.batch_size,
+                                                        **self.kwargs)
         elif self.dataset == Dataset.CIFAR10:
-            train_loader, val_loader, _ = cifar10_loaders(**self.kwargs)
+            train_loader, val_loader, _ = cifar10_loaders(self.batch_size,
+                                                          **self.kwargs)
         else:
             raise ValueError("unknown dataset: {}".format(self.dataset.value))
         return train_loader, val_loader
@@ -67,10 +72,10 @@ class NetworkTask(object):
         correct = 0
         total = 0
         with torch.no_grad():
-            for data in val_loader:
-                x, y = data
+            for (x, y) in val_loader:
+                x, y = x.to(self.device), y.to(self.device)
                 outputs = self.model(x)
                 _, predicted = torch.max(outputs.data, 1)
                 total += y.size(0)
-                correct += (predicted == labels).sum().item()
+                correct += (predicted == y).sum().item()
         return correct / total

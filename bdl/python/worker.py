@@ -1,7 +1,10 @@
 import argparse
 import logging
 import pickle
+import sys
 import time
+
+import grpc
 
 from task_service import task_service_pb2
 from task_client.task_client import TaskClient
@@ -16,20 +19,30 @@ class Worker():
         try:
             while True:
                 logging.debug("Requesting task")
-                task, runnable = self.client.request_task()
-                tid = task.task_id
+                try:
+                    task, runnable = self.client.request_task()
+                    tid = task.task_id
                 
-                if task is not None:
-                    logging.debug("Processing task %s" % tid)
-                    r = runnable.run()
-                    logging.debug("Processing of task %s done." % tid)
-                    result = result_pb2.Result(task_id=tid,
-                                               destination=task.source,
-                                               result_obj=pickle.dumps(r))
-                    self.client.send_result(result)
-                    logging.debug("Successfully sent result for task %s" % tid)
-                else:
-                    logging.error("Error encountered in reconstructing task.")
+                    if task is not None:
+                        logging.debug("Processing task %s" % tid)
+                        r = runnable.run()
+                        logging.debug("Processing of task %s done." % tid)
+                        result = result_pb2.Result(task_id=tid,
+                                                   destination=task.source,
+                                                   result_obj=pickle.dumps(r))
+                        self.client.send_result(result)
+                        logging.debug("Successfully sent result for task %s" % tid)
+                    else:
+                        logging.error("Error encountered in reconstructing task.")
+                except grpc.RpcError as e:
+                    e.details()
+                    status_code = e.code()
+                    logging.error("grpc error - name: {} value: {}".format(
+                        status_code.name, status_code.value))
+
+                    # TODO: change this to exponential backoff
+                    time.sleep(5)
+            
         except KeyboardInterrupt:
             logging.info("Shutting down worker.")
 

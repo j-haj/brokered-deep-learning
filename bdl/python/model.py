@@ -10,10 +10,12 @@ import grpc
 from empty_task import EmptyTask
 
 from broker_client.broker_client import BrokerClient
+from model_runner.model_runner import ModelRunner, EvoBuilder
 from model_service.model_service_pb2_grpc import ModelServiceServicer
 from model_service.model_service_pb2_grpc import ModelServiceStub
 from model_service import model_service_pb2
 from model_service import model_service_pb2_grpc
+from nn.genotype import Population
 from result.result_pb2_grpc import ResultServiceServicer
 from result import result_pb2
 from result import result_pb2_grpc
@@ -30,6 +32,12 @@ class ResultServicer(ResultServiceServicer):
 
     def __init__(self):
         self.result_q = queue.Queue()
+
+    def empty(self):
+        return self.result_q.empty()
+
+    def pop(self, timeout):
+        return self.result_q.get(timeout=timeout)
     
     def SendResult(self, request, context):
         logging.debug("Received result with task_id: {}".format(request.task_id))
@@ -49,17 +57,23 @@ class TaskBuilder():
 
 class ModelServer():
 
-    def __init__(self, model_address, broker_address):
+    def __init__(self, model_address, broker_address,
+                 result_servicer, population, max_generations=100):
         self.task_count = 0
         self.model_address = model_address
         self.broker_address = broker_address
         self.broker_client = BrokerClient(broker_address)
         self.broker_client.register(model_address)
-        self.result_servicer = ResultServicer()
+        self.result_servicer = result_servicer
         self.server = grpc.server(futures.ThreadPoolExecutor(4))
         result_pb2_grpc.add_ResultServiceServicer_to_server(self.result_servicer,
                                                             self.server)
         self.server.add_insecure_port(model_address)
+        self.model_runner = ModelRunner(model_address,
+                                        self.broker_client,
+                                        self.result_servicer,
+                                        population,
+                                        max_generations)
 
 
     def generate_task(self):
@@ -74,11 +88,8 @@ class ModelServer():
         logging.info("Listening on %s" % self.model_address)
         try:
             while True:
-                self.process_results()
-                time.sleep(1)
-                logging.debug("Generating new task")
-                self.broker_client.send_task(self.generate_task())
-                logging.debug("Task sent.")
+                logging.debug("Running model.")
+                self.model_runner.run()
         except KeyboardInterrupt:
             logging.info("Shutting down model server.")
             self.server.stop(0)
@@ -109,8 +120,12 @@ def main():
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
+    population = Population(2, EvoBuilder(3))
+    
     server = ModelServer(model_address=args.model_address,
-                         broker_address=args.broker_address)
+                         broker_address=args.broker_address,
+                         result_servicer=ResultServicer(),
+                         population=population)
     server.serve()
     
 if __name__ == "__main__":
