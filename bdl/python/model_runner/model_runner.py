@@ -95,8 +95,8 @@ class ModelRunner():
             self._process_results(len(self.population.offspring), 5*60)
 
             # Update population using tournament selection
-            keepers = [] if self.population.should_be_pared() else self.population
-            while self.population.should_be_pared():
+            keepers = []
+            while len(keepers) < self.population.n:
                 g1, g2 = np.random.choice(self.population.offspring, size=2)
                 if g1.fitness() > g2.fitness():
                     keepers.append(g1)
