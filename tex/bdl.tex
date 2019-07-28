@@ -425,6 +425,26 @@ Brokers can establish links with other brokers.
 \section{Experiments}
 
 \section{Related Work}
+The idea of a brokered message queue is not new. RabbitMQ [CITE] is a general
+purpose message broker that supports the same functionality demonstrated
+in this paper, but messages are delivered based on a routing key, rather than
+the first available worker. Similar to the RPC message definitions used in
+this work, RabbitMQ uses a collection of bytes as the message body. For
+streaming data, Apache Kafka [CITE] is a good choice. Kafka is requires a
+ZooKeeper \cite{Hunt:2010:ZWC:1855840.1855851} instance and is generally
+more complex to setup and run.
+Both RabbitMQ and Kafka are robust to failures. At the other end of the
+spectrum, $\varnothing$MQ is a low-level messaging library that can be used
+to build a performant, brokered messaging system similar to the one described
+in this paper.
+
+Tensorflow [CITE] offers some distributed training facilities. Other work such
+as Horovod [CITE] has improved upon Tensorflow's built-in distributed training
+facilities. Work has also been done on training deep learning models using
+MPI [CITE]. However, all of these works suffer from fault tolerance of workers
+and elastic compute environments. The core advantage to the approach proposed
+in this work is the ability to add and remove workers while the model is
+running and without having to stop or restart any work.
 
 \section{Conclusion}
 It can be tempting to think of system design as an all-or-nothing
