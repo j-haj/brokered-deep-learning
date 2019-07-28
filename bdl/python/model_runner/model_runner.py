@@ -73,7 +73,7 @@ class ModelRunner():
     def save_results(self, path="model_results.csv"):
         with open(path, "a") as f:
             for r in self.accuracies:
-                f.write("{},{:.8f},{}\n".format(r[0], r[1], r[2]))
+                f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
         self.results = []
 
     def run(self):
@@ -92,7 +92,8 @@ class ModelRunner():
                 
                 if g.is_evaluated():
                     sent_models -= 1
-                    self.accuracies.append([generation, g.fitness(), g.model()])
+                    self.accuracies.append([generation, time.time() - self.start,
+                                            g.fitness(), g.model()])
                     logging.debug("Skipping a previously evaluated model")
                     continue
                 m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2)
