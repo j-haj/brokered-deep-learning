@@ -21,7 +21,7 @@
 
 \begin{document}
 
-\title{A Scalable Architecture for Massively Parallel Deep Learning}
+\title{A Scalable Architecture for Parallel Deep Learning}
 
 \author{\IEEEauthorblockN{Jeff Hajewski}
 \IEEEauthorblockA{\textit{Department of Computer Science} \\
@@ -105,22 +105,52 @@ experiments we focus on the evolutionary approach due to its simplicity both in
 understanding and implementation.
 
 \subsection{Evolutionary Algorithms for NAS}
-We use a relatively simple approach to evolving neural network architectures.
+We use a relatively simple approach to evolving neural network architectures
+in that we only construct linear networks, rather than allow an arbitrary
+number of incoming connections for any given layer. The motivation behind
+this is two-fold: it reduces the size of search space for the neural network
+architecture and simplifies the implementation. Because this the focus of
+this work is the system architecture, rather than neural architecture search,
+we feel the trade-off is reasonable.
+
+\begin{figure}
+  \includegraphics{img/reduction}
+  \caption{Reduction layer.}
+  \label{fig:reduction}
+\end{figure}
+
 The problem domain we focus on is computer vision, so we restrict ourselves
-to convolutional layers for the hidden layers. The last two layers of the
-network are dense layer and are fixed to assure the number of categories
-is sensible for the given classification task. The challenge with evolving
-a neural network is in maintaining a valid neural network (a neural network
-with a path from the input layer to the output layer). We maintain this
-invariant as follows. Each time a layer is added to the network, it is
-randomly connected to another layer in the network; however, there is
-no guarantee that these two connected layers are part of the path from
-the input layer to the output layer. It is possible they form a disconnected
-subgraph of the network graph. We also maintain a phantom last layer --
-it is not an actual layer but represents the first fixed last layer in
-the formed network. Maintaining this phantom layer separate from the modified
-layers allows us to always append layers without having to rearrange the
-last layer.
+to convolutional layers for the hidden layers. The networks are constructed
+by duplicating modules one after the other a pre-determined (by the user)
+number of times, where layers composing the module unit are
+determined via evolutionary search. This approach allows us to control the
+decrease in spatial dimensions, which is useful in the implementation of
+the network (all layers within a module have the same spatial dimension)
+and also allows us to force the heuristic of doubling the number of filters
+via a 1x1 convultional layer prior to reducing the spatial dimension by a
+factor of two via a 3x3 max pooling layer. The intuition behind this
+technique is to try and preserve as much information contained within a
+tensor as possible.
+
+Module evolution proceeds by appending layers to the module or performing
+crossover, where two network are split at random positions and recombined
+to form two new networks. The maximum number of layers in a module is fixed
+(by the user), and evolution can add any of the following 2D convolutions:
+\begin{itemize}
+\item 1x1 Convolution
+\item 3x3 Convolution
+\item 3x1-1x3 Convolution
+\item 5x5 Convolution
+\item 5x1-1x5 Convolution
+\end{itemize}
+A ReLU activation is used between layers
+
+\begin{figure*}
+  \includegraphics{img/sample_arch}
+  \caption{Example of a constructed network.}
+  \label{fig:sample-arch}
+\end{figure*}
+
 
 \begin{algorithm}
   \caption{High-level outline of evolutionary algorithm.}\label{alg:evo-simple}
@@ -138,13 +168,6 @@ last layer.
   \State \emph{// Possibly append layer}
   \If{$\texttt{sampleUniform(0, 1)} < \texttt{append\_p}$}
   \State \texttt{self.layers.append}(\texttt{randomLayer()})
-  \EndIf
-  \State \emph{// Possibly add connection}
-  \If{$\texttt{sampleUniform}(0, 1) < \texttt{conn\_p}$}
-  \State $n_{\text{conn}} \gets \texttt{UniformInt}(0, \texttt{self.n\_layers})$
-  \For{$i = 0 \text{ to } n_{\text{conn}}$}
-  \State Add random connection
-  \EndFor
   \EndIf
   \EndProcedure
   \end{algorithmic}
