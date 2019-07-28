@@ -59,7 +59,7 @@ def fashion_mnist_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwa
 
     return train_loader, val_loader, test_loader   
 
-def cifar10_loaders(batch_size, test_batch_size=64, **kwargs):
+def cifar10_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
     train_set = datasets.CIFAR10("../data", train=True, download=True,
                                  transform=transforms.Compose([
                                      transforms.ToTensor(),
@@ -67,7 +67,7 @@ def cifar10_loaders(batch_size, test_batch_size=64, **kwargs):
                                                           (0.5, 0.5, 0.5))
                                  ]))
     train_n = int(len(train_set)*train_weight)
-    val_n = len(train_set) - tran_n
+    val_n = len(train_set) - train_n
     train, val = torch.utils.data.random_split(train_set, [train_n, val_n])
     train_loader = torch.utils.data.DataLoader(train,
                                                batch_size=batch_size,

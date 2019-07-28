@@ -16,12 +16,18 @@ from model_service.model_service_pb2_grpc import ModelServiceStub
 from model_service import model_service_pb2
 from model_service import model_service_pb2_grpc
 from nn.genotype import Population
+from nn.data import Dataset
 from result.result_pb2_grpc import ResultServiceServicer
 from result import result_pb2
 from result import result_pb2_grpc
 from task_service import task_service_pb2
 
 from result.result import NetworkResult
+
+
+_DATASETS = {"fashion_mnist": Dataset.FASHION_MNIST,
+             "mnist": Dataset.MNIST,
+             "cifar10": Dataset.CIFAR10}
 
 class Result():
     def __init__(self, task_id, result_obj):
@@ -57,7 +63,7 @@ class TaskBuilder():
 
 class ModelServer():
 
-    def __init__(self, model_address, broker_address,
+    def __init__(self, model_address, broker_address, dataset,
                  result_servicer, population, max_generations=100):
         self.task_count = 0
         self.model_address = model_address
@@ -71,6 +77,7 @@ class ModelServer():
         self.server.add_insecure_port(model_address)
         self.model_runner = ModelRunner(model_address,
                                         self.broker_client,
+                                        dataset,
                                         self.result_servicer,
                                         population,
                                         max_generations)
@@ -107,10 +114,12 @@ def get_args():
     parser.add_argument("--broker_address", default="localhost:10001",
                         help="Address used to establish a connection with the broker.")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--dataset", default="fashion_mnist",
+                        help=("Dataset to use for training. Must be one of "
+                              "fashion_mnist, mnist, or cifar10."))
 
     return parser.parse_args()
 
-    
 def main():
     args = get_args()
     fmt_str = "[%(levelname)s][%(filename)s][%(funcName)s][%(lineno)d][%(message)s]"
@@ -124,6 +133,7 @@ def main():
     
     server = ModelServer(model_address=args.model_address,
                          broker_address=args.broker_address,
+                         dataset=_DATASETS[args.dataset],
                          result_servicer=ResultServicer(),
                          population=population)
     server.serve()

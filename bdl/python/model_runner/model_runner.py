@@ -23,8 +23,9 @@ class EvoBuilder():
 
 class ModelRunner():
 
-    def __init__(self, model_address, broker_client,
+    def __init__(self, model_address, broker_client, dataset,
                  result_servicer, population, max_generations=100):
+        self.dataset = dataset
         self.model_address = model_address
         self.broker_client = broker_client
         self.result_servicer = result_servicer
@@ -33,6 +34,7 @@ class ModelRunner():
         self.max_generations = max_generations
         self.counter = 0
         self.accuracies = []
+        self.start = 0.0
 
     def _next_task_id(self):
         tid = "{}#{}".format(self.model_address, self.counter)
@@ -64,7 +66,8 @@ class ModelRunner():
             g.set_fitness(result.result_obj.accuracy())
             logging.debug("Result accuracy {}".format(result.result_obj.accuracy()))
             # Remove tid from dictionary
-            self.accuracies.append([generation, g.fitness(), g.model()])
+            out = [generation, time.time() - self.start, g.fitness(), g.model()]
+            self.accuracies.append(out)
             self.result_tracker.pop(tid, None)
 
     def save_results(self, path="model_results.csv"):
@@ -74,6 +77,7 @@ class ModelRunner():
         self.results = []
 
     def run(self):
+        self.start = time.time()
         for generation in range(self.max_generations):
             logging.debug("Beginning generation {}".format(generation+1))
             # Generate offspring
@@ -91,7 +95,7 @@ class ModelRunner():
                     self.accuracies.append([generation, g.fitness(), g.model()])
                     logging.debug("Skipping a previously evaluated model")
                     continue
-                m = NetworkTask(g.model().to_string(), Dataset.FASHION_MNIST, 128, n_epochs=2)
+                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,
