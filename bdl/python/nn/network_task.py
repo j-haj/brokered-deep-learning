@@ -16,7 +16,7 @@ _TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
                  Dataset.CIFAR10: (3, 32, 32)}
 
 class NetworkTask(object):
-    def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=1000, n_modules=3):
+    def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=100, n_modules=3):
         self.model = None
         self.n_modules = n_modules
         self.tensor_shape = _TENSOR_SHAPE[dataset]
