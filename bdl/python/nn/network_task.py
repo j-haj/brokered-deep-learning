@@ -44,6 +44,7 @@ class NetworkTask(object):
         val_acc = self.eval(val_loader)
         logging.debug("Finished training %d epochs with %.6f validation accuracy" %
                       (self.n_epochs, val_acc))
+        self.free_memory()
         return NetworkResult(val_acc)
 
     def get_data(self):
@@ -85,8 +86,8 @@ class NetworkTask(object):
         Return:
         Returns the test accuracy.
         """
-        correct = 0
-        total = 0
+        correct = 0.0
+        total = 0.0
         with torch.no_grad():
             for (x, y) in val_loader:
                 x, y = x.to(self.device), y.to(self.device)
@@ -95,3 +96,7 @@ class NetworkTask(object):
                 total += y.size(0)
                 correct += (predicted == y).sum().item()
         return correct / total
+
+    def free_memory(self):
+        del self.model
+        torch.cuda.empty_cache()
