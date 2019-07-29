@@ -20,12 +20,12 @@ def append_to_file(accuracies, path="single_model_results.csv"):
         for r in accuracies:
             f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
 
-def run(population, dataset, n_generations=100):
+def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
     start = time.time()
     accuracies = []
     initial_size = len(population.population)
     for generation in range(n_generations):
-        logging.debug("Generation %d" % (generation+1))
+        logging.info("Generation %d" % (generation+1))
         # Evolve population
         logging.debug("Generating population offspring.")
         population.generate_offspring()
@@ -36,7 +36,8 @@ def run(population, dataset, n_generations=100):
             if g.is_evaluated():
                 accuracies.append([generation, time.time() - start,
                                    g.fitness(), g.model()])
-            m = NetworkTask(g.model().to_string(), dataset, 128, n_epochs=2) 
+            m = NetworkTask(g.model().to_string(), dataset, 128, n_epochs=n_epochs,
+                            n_modules=n_modules)
             r = m.run()
             accuracies.append([generation, time.time() - start,
                                r.accuracy(), g.model()])
@@ -59,9 +60,11 @@ def get_args():
                         help=("Dataset to use. Can be one of mnist, "
                               "fashion_mnist (default), or cifar10."))
     parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
-    parser.add_argument("--population_size", type=int, default=10, help="Population size.")
+    parser.add_argument("--population_size", type=int, default=20, help="Population size.")
     parser.add_argument("--max_layer_count", type=int, default=3,
                         help="Max number of layers per module.")
+    parser.add_argument("--n_epochs", type=int, default=5, help="Number of epochs.")
+    parser.add_argument("--n_modules", type=int, default=5, help="Number of modules.")
     return parser.parse_args()
 
 
@@ -77,7 +80,10 @@ def main():
 
     population = Population(args.population_size,
                             EvoBuilder(args.max_layer_count))
-    run(population, _DATASETS[args.dataset])
+    run(population,
+        dataset=_DATASETS[args.dataset],
+        n_epochs=args.n_epochs,
+        n_modules=args.n_modules)
     pass
 
 if __name__ == "__main__":

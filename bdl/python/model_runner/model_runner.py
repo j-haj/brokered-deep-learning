@@ -24,8 +24,10 @@ class EvoBuilder():
 class ModelRunner():
 
     def __init__(self, model_address, broker_client, dataset,
-                 result_servicer, population, max_generations=100):
+                 result_servicer, population, max_generations=100,
+                 n_modules=5):
         self.dataset = dataset
+        self.n_modules = n_modules
         self.model_address = model_address
         self.broker_client = broker_client
         self.result_servicer = result_servicer
@@ -96,7 +98,8 @@ class ModelRunner():
                                             g.fitness(), g.model()])
                     logging.debug("Skipping a previously evaluated model")
                     continue
-                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2)
+                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2,
+                                n_module=self.n_modules)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,

@@ -16,8 +16,9 @@ _TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
                  Dataset.CIFAR10: (3, 32, 32)}
 
 class NetworkTask(object):
-    def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=1000):
+    def __init__(self, model, dataset, batch_size, n_epochs=5, log_interval=1000, n_modules=3):
         self.model = None
+        self.n_modules = n_modules
         self.tensor_shape = _TENSOR_SHAPE[dataset]
         self.layers = model
         self.dataset = dataset
@@ -25,11 +26,13 @@ class NetworkTask(object):
         self.n_epochs = n_epochs
         self.log_interval = log_interval
         have_cuda = torch.cuda.is_available()
+        if have_cuda:
+            logging.info("CUDA available. Setting device to GPU.")
         self.device = torch.device("cuda" if have_cuda else "cpu")
         self.kwargs = {"num_workers": 1, "pin_memory": True} if have_cuda else {}
 
     def build_model(self):
-        self.model = SimpleNN(self.tensor_shape, 10, self.layers, 3)
+        self.model = SimpleNN(self.tensor_shape, 10, self.layers, self.n_modules)
         
     def run(self):
         train_loader, val_loader = self.get_data()

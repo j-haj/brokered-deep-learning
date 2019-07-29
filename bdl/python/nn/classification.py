@@ -19,6 +19,7 @@ _FILTER_SIZES = [5, 10, 20]
 
 class SimpleNN(nn.Module):
     def __init__(self, tensor_shape, output_size, layers, n_modules):
+        logging.debug("Using %d modules" % n_modules)
         super(SimpleNN, self).__init__()
         self.tensor_shape = tensor_shape
         self.output_size = output_size
