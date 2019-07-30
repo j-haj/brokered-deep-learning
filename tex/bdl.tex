@@ -19,6 +19,13 @@
   tabsize=2,
 }
 
+\lstset{
+  emph={
+    message, rpc, string, enum, bytes,
+  },
+  emphstyle=\textbf
+}
+
 \begin{document}
 
 \title{A Scalable Architecture for Parallel Deep Learning}
@@ -39,7 +46,16 @@ suely-oliveira@uiowa.edu}
 \maketitle
 
 \begin{abstract}
-
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
+  word word word word word word word word word word
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -65,13 +81,25 @@ communication infrastructure.
 
 In this work we propose an RPC-based system for
 distributed deep learning. We experiment with the proposed architecture in the domain
-of neural architecture search (NAS), an extremely computationally intensive problem that
+of neural architecture search (NAS), a computationally intensive problem that
 trains thousands of deep neural networks in search of an optimal network architecture.
+We use this problem domain to illustrate four primary advantages to building a
+computationally intensive distributed system using RPC:
+\begin{itemize}
+\item RPC's higher level of abstraction over MPI simplifies the process of building more
+  complex systems and communication patterns.
+\item The user can avoid lower-level message serialization and deserialization through
+  RPC coupled with framework such as Protocol Buffers or Thrift.
+\item RPC systems don't require underlying software or resource managers --- a user can
+  create an AWS instance and immediately run their RPC-based code.
+\item RPC-based systems can offer elastic compute abilities, adding or removing nodes
+  as needed without needing to stop or restart the system.
+\end{itemize}
 Or system consists of four separate pieces: a \emph{model} that directs the search
 for a network architecture, a number of \emph{workers} that perform the computational
 work of training the models, a number of \emph{brokers} that form the backbone of
 the data pipeline from model to workers, and a \emph{nameserver} that simplifies the
-process of adding new brokers, workers, or models to the system. Our system offers
+process of adding new brokers, workers, or models to the system. It also offers
 elastic compute resources, allowing an arbitrary number of workers to join during
 high computational loads as well as allowing workers to leave the system, decreasing
 the overall available compute, without needing to restart or manual intervention.
@@ -84,6 +112,14 @@ the data pipeline of brokers. We use gRPC \cite{Wang:1993:GCC:155870.155881} to 
 the generation of RPC stubs, but could have just as easily used Apache Thrift
 \cite{Slee2007}, which generates stubs in a larger range of languages such as Ocaml,
 Haskell, and Rust.
+
+Although we are proposing RPC as an alternative to MPI, it is important to note that
+we are not claiming RPC is superior to MPI in every problem domain. In the domain of
+distributed deep learning, RPC offers many useful features such as simple fault
+tolerance and allowing compute resources to join and leave the system at will. In other
+domains, such as distributed linear algebra computations, MPI is probably a better
+choice due to its built in ability to efficiently broadcast messages to nodes within
+a system in a manner that takes advantage of the network architecture.
 
 \section{Neural Architecture Search}
 The goal of neural architecture search (NAS) is to find an optimal neural network
@@ -256,7 +292,7 @@ infrastructure.
 
 \subsection{RPC vs MPI}
 From
-a performance perspective, some prior work [CITE] has found RPC to provide lower
+a performance perspective, some prior work \cite{rpc-perf} has found RPC to provide lower
 latency and higher bandwidth for some tasks. That does not tell the entire
 story. MPI comes with built-in complex communication primitives that are capable
 of taking advantage the physical network architecture of the
@@ -273,7 +309,7 @@ work to a number of worker nodes and waits for the work to be completed. In the
 synchronous setting, the entire system will only be as fast as its slowest node
 and will cause idle resources as the faster nodes wait for the slowest node to
 finish. In the asynchronous setting, the faster nodes can continue to process
-work. This scenario was a motivation for [DIST DEEP LEARNING PAPER].
+work. This scenario was a motivation for \cite{40565}.
 
 Another short-comig of RPC is message size limitations. This can be particularly
 troublesome in distributed machine learning settings where highly parameterized
@@ -430,7 +466,7 @@ purpose message broker that supports the same functionality demonstrated
 in this paper, but messages are delivered based on a routing key, rather than
 the first available worker. Similar to the RPC message definitions used in
 this work, RabbitMQ uses a collection of bytes as the message body. For
-streaming data, Apache Kafka [CITE] is a good choice. Kafka is requires a
+streaming data, Apache Kafka \cite{kafka} is a good choice. Kafka is requires a
 ZooKeeper \cite{Hunt:2010:ZWC:1855840.1855851} instance and is generally
 more complex to setup and run.
 Both RabbitMQ and Kafka are robust to failures. At the other end of the
@@ -438,14 +474,19 @@ spectrum, $\varnothing$MQ is a low-level messaging library that can be used
 to build a performant, brokered messaging system similar to the one described
 in this paper.
 
-Tensorflow [CITE] offers some distributed training facilities. Other work such
-as Horovod [CITE] has improved upon Tensorflow's built-in distributed training
+Tensorflow \cite{tensorflow2015-whitepaper} offers some distributed training facilities. Other work such
+as Horovod \cite{DBLP:journals/corr/abs-1802-05799} has improved upon Tensorflow's
+built-in distributed training
 facilities. Work has also been done on training deep learning models using
-MPI [CITE]. However, all of these works suffer from fault tolerance of workers
-and elastic compute environments. The core advantage to the approach proposed
-in this work is the ability to add and remove workers while the model is
-running and without having to stop or restart any work.
+MPI \cite{pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}. However, all of these works suffer from fault tolerance of workers
+and elastic compute environments. Additionally, they require that MPI is installed
+on the cluster, which is not an issue if the software is running on a University
+research cluster or at a national lab, but requires the user to setup the underlying
+MPI installation if run on a provisioned AWS, GCP, or Azure cluster.
 
+MXNet \cite{DBLP:journals/corr/ChenLLLWWXXZZ15} introduces a declarative language
+used to build a computation graph, which is then optimized and evaluated by the
+MXNet engine, similar to Tensorflow pre-2.0.
 \section{Conclusion}
 It can be tempting to think of system design as an all-or-nothing
 decision---either build a system with MPI or build a system using RPCs. An
