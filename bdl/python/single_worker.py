@@ -3,6 +3,7 @@ import logging
 import time
 
 import numpy as np
+import torch
 
 from model_runner.model_runner import EvoBuilder
 from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, Dataset
@@ -24,6 +25,7 @@ def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
     start = time.time()
     accuracies = []
     initial_size = len(population.population)
+    seen = set()
     for generation in range(n_generations):
         logging.info("Generation %d" % (generation+1))
         # Evolve population
@@ -33,23 +35,31 @@ def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
         # Evaluate population
         logging.debug("Evaluating population.")
         for g in population:
+            should_discard = set()
             if g.is_evaluated():
                 accuracies.append([generation, time.time() - start,
                                    g.fitness(), g.model()])
+            elif str(g.model()) in seen:
+                # We only get this far if the previously seen genotype has not
+                # yet been evaluated. This occurs if we randomly evolve a
+                # previously seen model. In this case we set the fitness to
+                # -1 to disc
+                should_discard.add(g)
+                continue
+            
             m = NetworkTask(g.model().to_string(), dataset, 128, n_epochs=n_epochs,
                             n_modules=n_modules)
             r = m.run()
             accuracies.append([generation, time.time() - start,
                                r.accuracy(), g.model()])
+            seen.add(str(g.model()))
 
-        keepers = []
-        while len(keepers) < initial_size:
-            g1, g2 = np.random.choice(population.offspring, size=2)
-            if g1.fitness() > g2.fitness():
-                keepers.append(g1)
-            else:
-                keepers.append(g2)
-        population.update_population(keepers)
+        pop = set(population.offspring)
+        pop.difference_update(should_discard)
+        pop = list(pop)
+        pop.sort(key=lambda x: x.fitness(), reverse=True)
+        population.update_population(pop[:initial_size])
+
         logging.debug("Appending accuracies to results file.")
         append_to_file(accuracies)
         accuracies = []
@@ -77,7 +87,9 @@ def main():
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)
 
-
+    if torch.cuda.is_available():
+        logging.info("CUDA is available. Will attempt to use GPU device.")
+    
     population = Population(args.population_size,
                             EvoBuilder(args.max_layer_count))
     run(population,

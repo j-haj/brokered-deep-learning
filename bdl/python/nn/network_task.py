@@ -27,7 +27,7 @@ class NetworkTask(object):
         self.log_interval = log_interval
         have_cuda = torch.cuda.is_available()
         if have_cuda:
-            logging.info("CUDA available. Setting device to GPU.")
+            logging.debug("CUDA available. Setting device to GPU.")
         self.device = torch.device("cuda" if have_cuda else "cpu")
         self.kwargs = {"num_workers": 1, "pin_memory": True} if have_cuda else {}
 
@@ -35,6 +35,7 @@ class NetworkTask(object):
         self.model = SimpleNN(self.tensor_shape, 10, self.layers, self.n_modules)
         
     def run(self):
+        logging.debug("Training network: {}".format(self.layers))
         train_loader, val_loader = self.get_data()
         self.build_model()
         self.model.to(self.device)
@@ -44,7 +45,12 @@ class NetworkTask(object):
         val_acc = self.eval(val_loader)
         logging.debug("Finished training %d epochs with %.6f validation accuracy" %
                       (self.n_epochs, val_acc))
+
+        # Clean up resources
         self.free_memory()
+        del train_loader
+        del val_loader
+        
         return NetworkResult(val_acc)
 
     def get_data(self):
@@ -73,7 +79,7 @@ class NetworkTask(object):
 
             # Log training progress
             if batch_idx % self.log_interval == 0:
-                logging.info("Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                logging.debug("Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     epoch, batch_idx * len(data), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss.item()))
 

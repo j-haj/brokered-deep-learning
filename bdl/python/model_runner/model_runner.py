@@ -80,7 +80,9 @@ class ModelRunner():
 
     def run(self):
         self.start = time.time()
+        seen = set()
         for generation in range(self.max_generations):
+            should_discard = set()
             logging.debug("Beginning generation {}".format(generation+1))
             # Generate offspring
             self.population.generate_offspring()
@@ -97,6 +99,9 @@ class ModelRunner():
                     self.accuracies.append([generation, time.time() - self.start,
                                             g.fitness(), g.model()])
                     logging.debug("Skipping a previously evaluated model")
+                    continue
+                elif str(g.model()) in seen:
+                    should_discard.add(g)
                     continue
                 m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2,
                                 n_module=self.n_modules)
