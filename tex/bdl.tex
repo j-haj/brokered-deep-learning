@@ -21,14 +21,14 @@
 
 \lstset{
   emph={
-    message, rpc, string, enum, bytes, service,
+    message, rpc, string, enum, bytes, service, returns
   },
   emphstyle=\textbf
 }
 
 \begin{document}
 
-\title{A Scalable Architecture for Parallel Deep Learning}
+\title{Building Scalable Deep Learning Systems with RPC}
 
 \author{\IEEEauthorblockN{Jeff Hajewski}
 \IEEEauthorblockA{\textit{Department of Computer Science} \\
@@ -64,74 +64,78 @@ distributed deep learning, neural architecture search, artificial intelligence
 
 \section{Introduction}
 Building robust and scalable distributed applications is challenging --- getting
-communications patterns correct, handling node failures, and allowing for elastic
-compute resources all contribute to a high level of complexity. These challenges
-are exacerbated for long-runnining applications such as training large deep learning
-models or neural architecture search. Among the many popular frameworks for
-distributed programming, MPI \cite{Forum:1994:MMI:898758} combined with
-additional accelerator paradigms such as OpenMP \cite{Dagum:1998:OIA:615255.615542},
-OpenACC \cite{Wienke:2012:OFE:2402420.2402522}, and CUDA \cite{Nickolls:2008:SPP:1365490.1365500}
-is the common choice for performance-critical numerical workloads. In the deep
-learning setting, MPI is less popular with many favoring mutli-threading in
-combination with multiple GPUs, and more recently experimenting with Kubernetes
-\cite{8094194, 8672301}. Although part of this is simplicity of communication patterns,
-the fault tolerance required for long-running model training (which can last on the
-order of months in the industrial setting) makes MPI a poor choice for the underlying
-communication infrastructure.
+communications patterns correct, handling node failures, and allowing for
+elastic compute resources all contribute to a high level of complexity. These
+challenges are exacerbated for long-runnining applications such as training
+large deep learning models or neural architecture search. Among the many popular
+frameworks for distributed programming, MPI \cite{Forum:1994:MMI:898758}
+combined with additional accelerator paradigms such as OpenMP
+\cite{Dagum:1998:OIA:615255.615542}, OpenACC
+\cite{Wienke:2012:OFE:2402420.2402522}, and CUDA
+\cite{Nickolls:2008:SPP:1365490.1365500} is the common choice for
+performance-critical numerical workloads. In the deep learning setting, MPI is
+less popular with many favoring mutli-threading in combination with multiple
+GPUs, and more recently experimenting with Kubernetes \cite{8094194,
+  8672301}. Although part of this is simplicity of communication patterns, the
+fault tolerance required for long-running model training (which can last on the
+order of months in the industrial setting) makes MPI a poor choice for the
+underlying communication infrastructure.
 
-In this work we propose an RPC-based system for
-distributed deep learning. We experiment with the proposed architecture in the domain
-of neural architecture search (NAS), a computationally intensive problem that
-trains thousands of deep neural networks in search of an optimal network architecture.
-We use this problem domain to illustrate four primary advantages to building a
+In this work we propose an RPC-based system for distributed deep learning. We
+experiment with the proposed architecture in the domain of neural architecture
+search (NAS), a computationally intensive problem that trains thousands of deep
+neural networks in search of an optimal network architecture.  We use this
+problem domain to illustrate four primary advantages to building a
 computationally intensive distributed system using RPC:
 \begin{itemize}
-\item RPC's higher level of abstraction over MPI simplifies the process of building more
-  complex systems and communication patterns.
-\item The user can avoid lower-level message serialization and deserialization through
-  RPC coupled with framework such as Protocol Buffers or Thrift.
-\item RPC systems don't require underlying software or resource managers --- a user can
-  create an AWS instance and immediately run their RPC-based code.
-\item RPC-based systems can offer elastic compute abilities, adding or removing nodes
-  as needed without needing to stop or restart the system.
+\item RPC's higher level of abstraction over MPI simplifies the process of
+  building more complex systems and communication patterns.
+\item The user can avoid lower-level message serialization and deserialization
+  through RPC coupled with framework such as Protocol Buffers or Thrift.
+\item RPC systems don't require underlying software or resource managers --- a
+  user can create an AWS instance and immediately run their RPC-based code.
+\item RPC-based systems can offer elastic compute abilities, adding or removing
+  nodes as needed without needing to stop or restart the system.
 \end{itemize}
-Or system consists of four separate pieces: a \emph{model} that directs the search
-for a network architecture, a number of \emph{workers} that perform the computational
-work of training the models, a number of \emph{brokers} that form the backbone of
-the data pipeline from model to workers, and a \emph{nameserver} that simplifies the
-process of adding new brokers, workers, or models to the system. It also offers
-elastic compute resources, allowing an arbitrary number of workers to join during
-high computational loads as well as allowing workers to leave the system, decreasing
-the overall available compute, without needing to restart or manual intervention.
-The system is fault-tolerant to the loss of workers or brokers, and is highly scalable
-due to the ability of the brokers to share work and compute resources. Perhaps most
-importantly from a usability perspective, our system is language agnostic. In our
-experiments, we use Python for our model and workers, which we use to build and train
-or deep neural networks via PyTorch \cite{paszke2017automatic}, and use Go to build
-the data pipeline of brokers. We use gRPC \cite{Wang:1993:GCC:155870.155881} to handle
+Or system consists of four separate pieces: a \emph{model} that directs the
+search for a network architecture, a number of \emph{workers} that perform the
+computational work of training the models, a number of \emph{brokers} that form
+the backbone of the data pipeline from model to workers, and a \emph{nameserver}
+that simplifies the process of adding new brokers, workers, or models to the
+system. It also offers elastic compute resources, allowing an arbitrary number
+of workers to join during high computational loads as well as allowing workers
+to leave the system, decreasing the overall available compute, without needing
+to restart or manual intervention.  The system is fault-tolerant to the loss of
+workers or brokers, and is highly scalable due to the ability of the brokers to
+share work and compute resources. Perhaps most importantly from a usability
+perspective, our system is language agnostic. In our experiments, we use Python
+for our model and workers, which we use to build and train or deep neural
+networks via PyTorch \cite{paszke2017automatic}, and use Go to build the data
+pipeline of brokers. We use gRPC \cite{Wang:1993:GCC:155870.155881} to handle
 the generation of RPC stubs, but could have just as easily used Apache Thrift
-\cite{Slee2007}, which generates stubs in a larger range of languages such as Ocaml,
-Haskell, and Rust.
+\cite{Slee2007}, which generates stubs in a larger range of languages such as
+Ocaml, Haskell, and Rust.
 
-Although we are proposing RPC as an alternative to MPI, it is important to note that
-we are not claiming RPC is superior to MPI in every problem domain. In the domain of
-distributed deep learning, RPC offers many useful features such as simple fault
-tolerance and allowing compute resources to join and leave the system at will. In other
-domains, such as distributed linear algebra computations, MPI is probably a better
-choice due to its built in ability to efficiently broadcast messages to nodes within
-a system in a manner that takes advantage of the network architecture.
+Although we are proposing RPC as an alternative to MPI, it is important to note
+that we are not claiming RPC is superior to MPI in every problem domain. In the
+domain of distributed deep learning, RPC offers many useful features such as
+simple fault tolerance and allowing compute resources to join and leave the
+system at will. In other domains, such as distributed linear algebra
+computations, MPI is probably a better choice due to its built in ability to
+efficiently broadcast messages to nodes within a system in a manner that takes
+advantage of the network architecture.
 
 \section{Neural Architecture Search}
-The goal of neural architecture search (NAS) is to find an optimal neural network
-architecture for a given problem. NAS is computationally intensive due to the
-requirement of having to train a candidate network in order to evaluate its
-effectiveness. Although recent novel approaches have dramatically reduced this
-cost \cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these techniques
-fix certain elements of the design process, somewhat limiting the available
-architectures. Despite the computationally intense nature of the NAS problem,
-the task itself is trivially parallelizable across the network evaluations ---
-two separate networks can be trained simultaneously before being evaluated against
-eachother.
+The goal of neural architecture search (NAS) is to find an optimal neural
+network architecture for a given problem. NAS is computationally intensive due
+to the requirement of having to train a candidate network in order to evaluate
+its effectiveness. Although recent novel approaches have dramatically reduced
+this cost \cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these
+techniques fix certain elements of the design process, somewhat limiting the
+available architectures. Despite the computationally intense nature of the NAS
+problem, the task itself is trivially parallelizable across the network
+evaluations --- two separate networks can be trained simultaneously before being
+evaluated against eachother.
 
 The two common approaches to NAS are reinforcement learning based approaches such
 as \cite{45826, Kyriakides:2018:NAS:3200947.3208068, pmlr-v80-pham18a}, and
@@ -290,12 +294,34 @@ the gRPC (or Thrift) stubs. This is a minor inconveninece, as incorporating
 this new information into the system requires modifying the system
 infrastructure.
 
+Another advantage of using gRPC or Thrift to define the RPC API of the system is
+the service definition itself acts as documentation on the flow of information
+within the system. A user can look at these definitions and see how information
+is meant to flow.
+
+\begin{figure}
+  \begin{lstlisting}
+    service Task {
+      // Called by a worker to request a task.
+      rpc RequestTask(TaskRequest)
+        returns (TaskResponse) {}
+    }
+    service Result {
+      // Called by a worker to send a result
+      // back to the broker.
+      rpc SendResult(ResultMsg)
+        returns (ResultResponse) {}
+    }
+  \end{lstlisting}
+  \caption{Example service definitions for tasks and results.}
+  \label{fig:task-result-services}
+\end{figure}
+
 \subsection{RPC vs MPI}
-From
-a performance perspective, some prior work \cite{rpc-perf} has found RPC to provide lower
-latency and higher bandwidth for some tasks. That does not tell the entire
-story. MPI comes with built-in complex communication primitives that are capable
-of taking advantage the physical network architecture of the
+From a performance perspective, some prior work \cite{rpc-perf} has found RPC to
+provide lower latency and higher bandwidth for some tasks. That does not tell
+the entire story. MPI comes with built-in complex communication primitives that
+are capable of taking advantage the physical network architecture of the
 cluster. Additionally, MPI is capable of bulk broadcasts to groups of nodes
 using custom communicator definitions. These primitives save the programmer a
 lot of overhead when building HPC applications. Settings such as large,
@@ -334,17 +360,16 @@ its behavoir based on its assigned communicator rank (as typically done in MPI).
 
 \section{System Architecture}
 As previously mentioned, our system consists of four different components.
-Figure~\ref{fig:sys-arch} shows an overview of the system architecture.
-A model
-is a problem specific implementation that controls what is sent to the system for
-evaluation and handles the result it receives. The brokers form the data pipeline
-of the system, moving work to available workers. Workers form the other customizable
-part of the system because they need to know how to perform their assigned work.
-Lastly, the nameserver maps known brokers to their network address -- this is useful
-for connecting to brokers, such as a model connecting to a broker, a broker connecting
-to a broker (for broker-broker peering), or a worker connecting to a broker. The
-following sections will detail each components functionality individual and within
-the system as a whole.
+Figure~\ref{fig:sys-arch} shows an overview of the system architecture.  A model
+is a problem specific implementation that controls what is sent to the system
+for evaluation and handles the result it receives. The brokers form the data
+pipeline of the system, moving work to available workers. Workers form the other
+customizable part of the system because they need to know how to perform their
+assigned work.  Lastly, the nameserver maps known brokers to their network
+address -- this is useful for connecting to brokers, such as a model connecting
+to a broker, a broker connecting to a broker (for broker-broker peering), or a
+worker connecting to a broker. The following sections will detail each
+components functionality individual and within the system as a whole.
 
 \begin{figure*}
   \centering
@@ -374,8 +399,9 @@ receive will be lost and the model will need to resend to a new broker.
 
 \subsection{Worker}
 Workers are the other user-defined and implemented portion of the system. While
-a single worker implementation can work for multiple model implementations, there
-is no general worker implementation that will work across all languages and models.
+a single worker implementation can work for multiple model implementations,
+there is no general worker implementation that will work across all languages
+and models.
 
 \begin{figure}
   \begin{lstlisting}[language=python]
@@ -392,40 +418,50 @@ class Worker:
 \end{figure}
 
 Using an API similar to that shown in Figure~\ref{fig:python-api}, one can use
-the same worker implementation for any task that inherits from the \texttt{BaseTask}
-class.
+the same worker implementation for any task that inherits from the
+\texttt{BaseTask} class.
 
-\subsection{Nameserver}
-The nameserver simplifies bookkeeping when starting new broker instances.
-Rather than forcing the user to specify which brokers a newly started broker
-should link up with, the nameserver stores and shares that information with
-all registered brokers. During start-up, each broker registers with the nameserver
-and begins sending heartbeat messages. The nameserver tracks which brokers have
-sent heartbeats recently (via a user-modifiable timeout setting) and drops brokers
-that have timed-out. If a broker sends a heartbeat \emph{after} the nameserver has
-dropped the connection, the nameserver responds by telling the broker it must
-re-register with the nameserver.
+Figure~\ref{fig:worker-broker} shows the communication pattern between the
+broker and a worker. There are two interesting aspects of this diagram: all
+communication starts at the worker and there is no heartbeat exchange between
+the worker and the broker. Both of these details are what allow the system to
+treat workers as ephemeral compute resources. This means an arbitrary number of
+workers can join and leave the system without the system knowing or caring. The
+downside to this approach is it requires a little extra bookkeeping at the
+broker. The broker needs to track what tasks are outstanding and decide if they
+should be moved back in to the work queue.
 
-Brokers can request the nameserver send them an address of another broker with
-which they can link and share resources. Rather than force the user to specify
-which brokers should form a peering link, a broker will receive a random broker
-address.
-
-Care must be taken with the nameserver as this is the single point of failure
-within the system. Although the system can continue to function without a
-nameserver, new brokers will be unable to join. This means eventually the system
-will fail as brokers leave the system (e.g., power outage, hardware failure, etc.).
-The simple solution is to use an orchestration system such as Kubernetes to make
-sure there is always at least one nameserver running. Because the nameserver
-can force brokers to re-register, restoring a failed nameserver simply forces all
-incoming heartbeat requests to re-register and thus restoring the state of the
-nameserver broker registry prior to the crash. This mechanism greatly simplifies
-the implementation of the nameserver. The only state that must persist between
-crashes of the nameserver is that of the next available broker ID. If the nameserver
-does not persist this to some type of durable medium (e.g., HDFS
-\cite{Shvachko:2010:HDF:1913798.1914427}) then it is possible for multiple brokers
-to receive the same broker ID.
-
+% \subsection{Nameserver}
+% The nameserver simplifies bookkeeping when starting new broker instances.
+% Rather than forcing the user to specify which brokers a newly started broker
+% should link up with, the nameserver stores and shares that information with all
+% registered brokers. During start-up, each broker registers with the nameserver
+% and begins sending heartbeat messages. The nameserver tracks which brokers have
+% sent heartbeats recently (via a user-modifiable timeout setting) and drops
+% brokers that have timed-out. If a broker sends a heartbeat \emph{after} the
+% nameserver has dropped the connection, the nameserver responds by telling the
+% broker it must re-register with the nameserver.
+% 
+% Brokers can request the nameserver send them an address of another broker with
+% which they can link and share resources. Rather than force the user to specify
+% which brokers should form a peering link, a broker will receive a random broker
+% address.
+% 
+% Care must be taken with the nameserver as this is the single point of failure
+% within the system. Although the system can continue to function without a
+% nameserver, new brokers will be unable to join. This means eventually the system
+% will fail as brokers leave the system (e.g., power outage, hardware failure,
+% etc.).  The simple solution is to use an orchestration system such as Kubernetes
+% to make sure there is always at least one nameserver running. Because the
+% nameserver can force brokers to re-register, restoring a failed nameserver
+% simply forces all incoming heartbeat requests to re-register and thus restoring
+% the state of the nameserver broker registry prior to the crash. This mechanism
+% greatly simplifies the implementation of the nameserver. The only state that
+% must persist between crashes of the nameserver is that of the next available
+% broker ID. If the nameserver does not persist this to some type of durable
+% medium (e.g., HDFS \cite{Shvachko:2010:HDF:1913798.1914427}) then it is possible
+% for multiple brokers to receive the same broker ID.
+% 
 \begin{figure}
   \centering
   \includegraphics{img/broker_broker}
@@ -434,20 +470,21 @@ to receive the same broker ID.
 \end{figure}
 
 \subsection{Broker}
-Brokers form the data pipeline of our system. Work is sent from a model to a broker,
-which in turn sends the work to a free worker and returns the result to the original
-model. At its core, a broker is essentially just a process with a owned task queue,
-a helper task queue (tasks received from other brokers), a processing queue, and
-a results queue. Work in the owned task queue is work that was sent from a model directly
-to the broker -- this is the work that will be lost if the broker crashes. Work in
-the helper task queue is work that has been sent from other brokers that the respective
-broker has agreed to help with. If the broker crashes, this work will \emph{not} be
-lost as the other brokers will see the failure and can recover the task from their
-processing queue. The processing queue stores tasks that have been sent to
-workers or other brokers. When a result is received from a worker or another broker,
-the corresponding ID will be removed from the processing queue and the result will
-be added to the result queue. The broker pulls tasks from the result queue and sends
-the result to its owner, which may be a model or another broker.
+Brokers form the data pipeline of our system. Work is sent from a model to a
+broker, which in turn sends the work to a free worker and returns the result to
+the original model. At its core, a broker is essentially just a process with a
+owned task queue, a helper task queue (tasks received from other brokers), a
+processing queue, and a results queue. Work in the owned task queue is work that
+was sent from a model directly to the broker -- this is the work that will be
+lost if the broker crashes. Work in the helper task queue is work that has been
+sent from other brokers that the respective broker has agreed to help with. If
+the broker crashes, this work will \emph{not} be lost as the other brokers will
+see the failure and can recover the task from their processing queue. The
+processing queue stores tasks that have been sent to workers or other
+brokers. When a result is received from a worker or another broker, the
+corresponding ID will be removed from the processing queue and the result will
+be added to the result queue. The broker pulls tasks from the result queue and
+sends the result to its owner, which may be a model or another broker.
 
 Brokers can establish links with other brokers.
 
@@ -474,19 +511,39 @@ spectrum, $\varnothing$MQ is a low-level messaging library that can be used
 to build a performant, brokered messaging system similar to the one described
 in this paper.
 
-Tensorflow \cite{tensorflow2015-whitepaper} offers some distributed training facilities. Other work such
-as Horovod \cite{DBLP:journals/corr/abs-1802-05799} has improved upon Tensorflow's
-built-in distributed training
-facilities. Work has also been done on training deep learning models using
-MPI \cite{pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}. However, all of these works suffer from fault tolerance of workers
-and elastic compute environments. Additionally, they require that MPI is installed
-on the cluster, which is not an issue if the software is running on a University
-research cluster or at a national lab, but requires the user to setup the underlying
-MPI installation if run on a provisioned AWS, GCP, or Azure cluster.
+A natural question at this point in the work is why we would bother building our
+own brokered system when there are industrial strength alternatives
+available. These message passing systems\footnote{We use this as a generic term,
+  since Kafka is not really a message queue.} stricly deal with sending and
+delivering messages in a scalable and robust manner. Our broker does more than
+simply relay messages---the broker is determining retry logic, hadling lost
+tasks, [ADD OTHER STUFF].
+
+Tensorflow \cite{tensorflow2015-whitepaper} offers some distributed training
+facilities. Other work such as Horovod \cite{DBLP:journals/corr/abs-1802-05799}
+has improved upon Tensorflow's built-in distributed training facilities. Work
+has also been done on training deep learning models using MPI
+\cite{pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}. However, all of these
+works suffer from fault tolerance of workers and elastic compute
+environments. Additionally, they require that MPI is installed on the cluster,
+which is not an issue if the software is running on a University research
+cluster or at a national lab, but requires the user to setup the underlying MPI
+installation if run on a provisioned AWS, GCP, or Azure cluster.
 
 MXNet \cite{DBLP:journals/corr/ChenLLLWWXXZZ15} introduces a declarative language
 used to build a computation graph, which is then optimized and evaluated by the
-MXNet engine, similar to Tensorflow pre-2.0.
+MXNet engine, similar to Tensorflow pre-2.0. [NEEDS ADDITIONAL WORK]
+
+Much of the previous work on neural architecture search uses some form of a
+distributed architecture consisting of a model, a coordinator, and workers. The
+coordinator handles assignment of work to the workers. While many of these works
+don't detail the specifics of their system, we reviewed some of the available
+code on Github. A popular paradigm is using Python's \texttt{multiprocessing}
+module to run multiple models on a multi-GPU machine. These GPUs are fed from a
+thread-safe queue. We expect some of the larger works from Google and Facebook
+likely use RPC for communication, as this is the standard approach for the rest
+of their infrastructure and is what their engineers are familiar with.
+
 \section{Conclusion}
 It can be tempting to think of system design as an all-or-nothing
 decision---either build a system with MPI or build a system using RPCs. An
