@@ -44,6 +44,7 @@ def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
                 # yet been evaluated. This occurs if we randomly evolve a
                 # previously seen model. In this case we set the fitness to
                 # -1 to disc
+                g.set_fitness(-1)
                 should_discard.add(g)
                 continue
             

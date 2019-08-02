@@ -109,6 +109,18 @@ class SimpleEvo(object):
     def __init__(self, max_num_layers):
         self.max_num_layers = max_num_layers
         self.layers = []
+        self._add_random_layer()
+
+    def _add_random_layer(self, idx=-1):
+        global _LAYER_TYPES
+        global _FILTER_SIZES
+        layer_type = np.random.choice(_LAYER_TYPES)
+        layer_size = np.random.choice(_FILTER_SIZES)
+        layer = Layer(layer_type, layer_size)
+        if idx < 0:
+            self.layers.append(layer)
+        else:
+            self.layers[idx] = layer
 
     def clone(self):
         c = SimpleEvo(self.max_num_layers)
@@ -119,18 +131,13 @@ class SimpleEvo(object):
         return len(self.layers)
 
     def mutate(self):
-        global _LAYER_TYPES
-        global _FILTER_SIZES
-        layer_type = np.random.choice(_LAYER_TYPES)
-        layer_size = np.random.choice(_FILTER_SIZES)
-        layer = Layer(layer_type, layer_size)
         if (len(self.layers) == 0
             or (len(self.layers) < self.max_num_layers
                 and np.random.rand() < .5)):
-            self.layers.append(layer)
+            self._add_random_layer()
         else:
             idx = np.random.randint(len(self.layers))
-            self.layers[idx] = layer
+            self._add_random_layer(idx)
         return self
 
     def crossover(self, other):
