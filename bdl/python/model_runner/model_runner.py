@@ -104,7 +104,7 @@ class ModelRunner():
                     should_discard.add(g)
                     continue
                 m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2,
-                                n_module=self.n_modules)
+                                n_modules=self.n_modules)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,

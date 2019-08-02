@@ -117,6 +117,10 @@ def get_args():
     parser.add_argument("--dataset", default="fashion_mnist",
                         help=("Dataset to use for training. Must be one of "
                               "fashion_mnist, mnist, or cifar10."))
+    parser.add_argument("--population_size", default=10,
+                        help="Size of population.")
+    parser.add_argument("--n_modules", default=2,
+                        help="Max number of modules to use.")
 
     return parser.parse_args()
 
@@ -129,7 +133,8 @@ def main():
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
-    population = Population(2, EvoBuilder(3))
+    population = Population(args.population_size,
+                            EvoBuilder(args.n_modules))
     
     server = ModelServer(model_address=args.model_address,
                          broker_address=args.broker_address,
