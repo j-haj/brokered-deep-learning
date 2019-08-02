@@ -1,6 +1,7 @@
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 % The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{balance}
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithm}
@@ -495,8 +496,26 @@ Brokers can establish links with other brokers.
     model.}\label{fig:broker-model}
 \end{figure}
 
-\section{Experiments}
+\section{Results}
+The goal of our experiments is to explore the scalability and robustness
+of a system built using RPCs for communication to perform a long-running,
+computationally intensive task. All experiment were run on Amazon's
+AWS EC2 platform. The first run on a single machine sets the baseline
+number of models evaluated per unit of time. The successive experiments
+analyze how this value changes with the addition of worker nodes as well
+as how the system reacts to losing worker nodes.
 
+Figure~\ref{fig:single-val} shows the results of a single Nvidia V100
+graphics card. This run establishes a baseline of a single machine
+performing a naive neural architecture search.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{result/output/single_worker}
+  \caption{Validation accuracy over time on a single Nvidia V100 for
+    the CIFAR10 dataset.}
+  \label{fig:single-val}
+\end{figure}
 \section{Related Work}
 The idea of a brokered message queue is not new. RabbitMQ [CITE] is a general
 purpose message broker that supports the same functionality demonstrated
@@ -556,7 +575,7 @@ and RPC to communicate between clusters. In this way, individual clusters become
 the workers of the system and can join and leave at will, while the broker
 backbone manages sending tasks to the individual clusters and returning their
 results to the model.
-
+\balance
 \bibliographystyle{abbrv}
 \bibliography{/home/jhaj/research/bibliographies/bdl,
   /home/jhaj/research/bibliographies/comps_plan}
