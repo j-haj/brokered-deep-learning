@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
-python3 model.py \
+/usr/local/bin/python3 model.py \
 	--dataset=cifar10

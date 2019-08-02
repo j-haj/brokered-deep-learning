@@ -101,6 +101,7 @@ class ModelRunner():
                     logging.debug("Skipping a previously evaluated model")
                     continue
                 elif str(g.model()) in seen:
+                    sent_models -= 1
                     should_discard.add(g)
                     continue
                 m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2,

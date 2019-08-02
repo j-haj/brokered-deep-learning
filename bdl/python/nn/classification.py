@@ -80,7 +80,7 @@ class SimpleNN(nn.Module):
                                              1))
             self.trainable_layers.append(self.layers[-1])
             o = self.out_channels[-1] * 2
-            self.layers.append(nn.MaxPool2d((3,3), stride=2))
+            self.layers.append(nn.MaxPool2d((2,2), stride=2))
             self.out_channels.append(o)
             self.layers.append(F.relu)
         self.trainable_layers = nn.ModuleList(self.trainable_layers)
