@@ -52,9 +52,10 @@ def fashion_mnist_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwa
                                              **kwargs)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST("../data", train=False, transform=transforms.Compose([
-            transforms.ToTensor(),
-            ])),
+        datasets.MNIST("../data", train=False, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                       ])),
         batch_size=test_batch_size, shuffle=True, **kwargs)
 
     return train_loader, val_loader, test_loader   
