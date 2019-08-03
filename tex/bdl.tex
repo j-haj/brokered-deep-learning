@@ -341,7 +341,7 @@ and will cause idle resources as the faster nodes wait for the slowest node to
 finish. In the asynchronous setting, the faster nodes can continue to process
 work. This scenario was a motivation for \cite{40565}.
 
-Another short-comig of RPC is message size limitations. This can be particularly
+Another short-coming of RPC is message size limitations. This can be particularly
 troublesome in distributed machine learning settings where highly parameterized
 models such as deep neural networks are sent across the network. The solution
 is to send a representation of the model, rahter than the model itself, across
@@ -359,8 +359,31 @@ whose behavior are class-dependent. In the system we propose, there are four
 classes of processes: the model, the broker, the nameserver, and the worker. It
 is conceptually simpler to think of these as four different processes/programs
 and build each of them separately, rather than a single program that determines
-its behavoir based on its assigned communicator rank (as typically done in MPI).
+its behavoir based on its assigned communicator rank (as done in MPI).
 
+An interesting advantage of RPC is the ability to take advantage of a container
+orchestration system such as Kubernetes \cite{43826} to make sure a specified
+number of worker nodes remain available. If a worker node goes down, or the
+desired number of worker nodes increases, Kubernetes can handle the logistics
+and the system takes advantage of the newly available or restored compute
+resources without issue. This is only possible because RPC allows us to
+create a stateless communication that doesn't require a persistent connection
+between communicating nodes. While this may seem excessive for a small collection
+of nodes, the ability to have Kubernetes manage system state within a large
+system can be quite valuable in a production system.
+
+One particularly unique aspect of the domain of neural architecture search is
+that it does not require low-latency communication. Each neural network can
+take anywhere from minutes to tens of minutes to train, which means the
+frequency of task and corresponding result messages is fairly low. One prior
+work even used a shared filesystem [CITE] to communicate between a model and the
+worker nodes. The long time interval between sending the task to the worker
+and receiving the result from the same worker means a single server could
+handle a potentially large number of connections with workers, certainly
+on the order of hundreds and possibly even thousancs. Anecdotally, we found
+a laptop with an Intel 4.2GHz i7 processor was able to handle over 200
+connections of a heartbeat request and response service, similar to that
+depicted in Figure~\ref{fig:heartbeat}.
 
 \section{System Architecture}
 As previously mentioned, our system consists of four different components.
@@ -435,21 +458,52 @@ downside to this approach is it requires a little extra bookkeeping at the
 broker. The broker needs to track what tasks are outstanding and decide if they
 should be moved back in to the work queue.
 
-% \subsection{Nameserver}
-% The nameserver simplifies bookkeeping when starting new broker instances.
-% Rather than forcing the user to specify which brokers a newly started broker
-% should link up with, the nameserver stores and shares that information with all
-% registered brokers. During start-up, each broker registers with the nameserver
-% and begins sending heartbeat messages. The nameserver tracks which brokers have
-% sent heartbeats recently (via a user-modifiable timeout setting) and drops
-% brokers that have timed-out. If a broker sends a heartbeat \emph{after} the
-% nameserver has dropped the connection, the nameserver responds by telling the
-% broker it must re-register with the nameserver.
-% 
-% Brokers can request the nameserver send them an address of another broker with
-% which they can link and share resources. Rather than force the user to specify
-% which brokers should form a peering link, a broker will receive a random broker
-% address.
+\subsection{Broker}
+Brokers form the data pipeline of our system. Work is sent from a model to a
+broker, which in turn sends the work to a free worker or to another broker via
+peering and returns the result to
+the original model. At its core, a broker is essentially just a process with a
+owned task queue, a helper task queue (tasks received from other brokers
+via peering), a
+processing queue, and a results queue. Work in the owned task queue is work that
+was sent from a model directly to the broker -- this is the work that will be
+lost if the broker crashes. Work in the helper task queue is work that has been
+sent from other brokers that the respective broker has agreed to help with. If
+the broker crashes, this work will \emph{not} be lost as the other brokers will
+see the failure and can recover the task from their processing queue. The
+processing queue stores tasks that have been sent to workers or other
+brokers. When a result is received from a worker or another broker, the
+corresponding ID will be removed from the processing queue and the result will
+be added to the result queue. The broker pulls tasks from the result queue and
+sends the result to its owner, which may be a model or another broker.
+
+\begin{figure}
+  \centering
+  \includegraphics{img/model_broker}
+  \caption{Communication pattern between the broker and
+    model.}\label{fig:broker-model}
+\end{figure}
+
+\subsection{Nameserver}
+The nameserver simplifies bookkeeping when starting new broker instances.
+Rather than forcing the user to specify which brokers a newly started broker
+should link up with, the nameserver stores and shares that information with all
+registered brokers. During start-up, each broker registers with the nameserver
+and begins sending heartbeat messages. The nameserver tracks which brokers have
+sent heartbeats recently (via a user-modifiable timeout setting) and drops
+brokers that have timed-out. If a broker sends a heartbeat \emph{after} the
+nameserver has dropped the connection, the nameserver responds by telling the
+broker it must re-register with the nameserver.
+
+The nameserver simplifies broker-broker peering by providing a central location
+where brokers can request addresses of other brokers. It also provides a metadata
+store for the system, which is important in multi-GPU scenarios. A worker running
+on a server with multiple GPUs needs information about what GPU to use. Storing
+this metadata on the nameserver allows the nameserver to manage GPU resources,
+rather than requiring the user to specify the GPU ID for every worker that is
+running. This is not a problem for small numbers of workers (<10) but is not
+scalable for hundreds or thousands of workers.
+
 % 
 % Care must be taken with the nameserver as this is the single point of failure
 % within the system. Although the system can continue to function without a
@@ -471,32 +525,6 @@ should be moved back in to the work queue.
   \includegraphics{img/broker_broker}
   \caption{Communication pattern for broker-broker communication.}
   \label{fig:broker-broker}
-\end{figure}
-
-\subsection{Broker}
-Brokers form the data pipeline of our system. Work is sent from a model to a
-broker, which in turn sends the work to a free worker and returns the result to
-the original model. At its core, a broker is essentially just a process with a
-owned task queue, a helper task queue (tasks received from other brokers), a
-processing queue, and a results queue. Work in the owned task queue is work that
-was sent from a model directly to the broker -- this is the work that will be
-lost if the broker crashes. Work in the helper task queue is work that has been
-sent from other brokers that the respective broker has agreed to help with. If
-the broker crashes, this work will \emph{not} be lost as the other brokers will
-see the failure and can recover the task from their processing queue. The
-processing queue stores tasks that have been sent to workers or other
-brokers. When a result is received from a worker or another broker, the
-corresponding ID will be removed from the processing queue and the result will
-be added to the result queue. The broker pulls tasks from the result queue and
-sends the result to its owner, which may be a model or another broker.
-
-Brokers can establish links with other brokers.
-
-\begin{figure}
-  \centering
-  \includegraphics{img/model_broker}
-  \caption{Communication pattern between the broker and
-    model.}\label{fig:broker-model}
 \end{figure}
 
 \section{Results}
@@ -557,14 +585,47 @@ used to build a computation graph, which is then optimized and evaluated by the
 MXNet engine, similar to Tensorflow pre-2.0. [NEEDS ADDITIONAL WORK]
 
 Much of the previous work on neural architecture search uses some form of a
-distributed architecture consisting of a model, a coordinator, and workers. The
+distributed architecture consisting of a model, (possible) a coordinator, and workers. The
 coordinator handles assignment of work to the workers. While many of these works
 don't detail the specifics of their system, we reviewed some of the available
 code on Github. A popular paradigm is using Python's \texttt{multiprocessing}
 module to run multiple models on a multi-GPU machine. These GPUs are fed from a
-thread-safe queue. We expect some of the larger works from Google and Facebook
-likely use RPC for communication, as this is the standard approach for the rest
-of their infrastructure and is what their engineers are familiar with.
+thread-safe queue. PyTorch offers a data parallel module that handles this
+functionality while Tensorflow provides functionality for distributed training
+that relies on gRPC. 
+
+A number of prior works use MPI in conjunction with deep learning libraries
+taking a data parallel approach \cite{Awan:2016:ELM:2966884.2966912,
+  Awan:2017:SCM:3018743.3018769}. This is familiar to other work that takes
+advantage of multithreading (such as Python's \texttt{multiprocessing} module)
+but utilizes much larger systems. Awan et. al.
+\cite{Awan:2018:OBD:3236367.3236381} build a model parallel system using
+MPI, relying on MPI's efficient communication primitives to avoid excessive
+blocking when cross-node dependencies. Unfortunately, all of these works
+require MPI on the system they are running, which adds another dependency
+to the software stack. These works also are unable to utilize newly available
+resources without restarting the running process.
+
+Others \cite{journals/corr/MoritzNSJ15, journals/corr/KimPJY16} use Spark
+\cite{Zaharia:2016:ASU:3013530.2934664} to
+train deep learning neural networks. Spark \emph{can} handle the addition or loss
+of compute nodes, is robust to node failures (via HDFS) but struggles with
+iterative algorithms. Both of these works use Spark to distribute Caffe
+\cite{Jia:2014:CCA:2647868.2654889} models to GPU compute nodes
+and implement asynchronous SGD. The main issue with Spark in this context
+is that either the user must create a wrapper for the model in Scala or
+use PySpark. Using PySpark is relatively simple, as long as your model is
+written in Python. If your model is written in something other than Python
+such as C++, then you must decide if its better to create a wrapper in Scala
+(if you know Scala) or a Swig interface and call it from Python. Both of
+these options seem more complex than implementing a server stub to send
+models and using a pre-generated client to request models to train as well
+as report the results.
+
+Implementing algorithms that are iterative in nature in Spark poses another
+issue. Spark does not handle iterative-style algorithms particularly well,
+primarily due to the shuffle-stage of MapReduce (since Spark is built on
+top of Hadoop).
 
 \section{Conclusion}
 It can be tempting to think of system design as an all-or-nothing
