@@ -12,8 +12,11 @@ from result import result_pb2
 
 class Worker():
 
-    def __init__(self, broker_address):
+    def __init__(self, broker_address, cuda_device_id=None):
         self.client = TaskClient(broker_address)
+        self.cuda_device_id = cuda_device_id
+        if cuda_device_id is not None:
+            logging.info("Worker using CUDA device %d" % cuda_device_id)
 
     def serve(self):
         try:
@@ -25,7 +28,10 @@ class Worker():
                 
                     if task is not None:
                         logging.debug("Processing task %s" % tid)
-                        r = runnable.run()
+                        if self.cuda_device_id is None:
+                            r = runnable.run()
+                        else:
+                            r = runnable.run(self.cuda_device_id)
                         logging.debug("Processing of task %s done." % tid)
                         result = result_pb2.Result(task_id=tid,
                                                    destination=task.source,
@@ -51,7 +57,8 @@ def get_args():
     parser.add_argument("--broker_address", default="localhost:10001",
                         help="Address used to establish a connection with the broker.")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-
+    parser.add_argument("--cuda_device_id", type=int, required=False,
+                        help="CUDA device ID.")
     return parser.parse_args()
 
 def main():
@@ -62,7 +69,7 @@ def main():
         logging.debug("Using DEBUG log level.")
     else:
         logging.basicConfig(format=fmt_str, level=logging.INFO)
-    w = Worker(args.broker_address)
+    w = Worker(args.broker_address, args.cuda_device_id)
     w.serve()
 
 if __name__ == "__main__":

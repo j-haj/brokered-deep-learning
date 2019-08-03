@@ -64,7 +64,8 @@ class TaskBuilder():
 class ModelServer():
 
     def __init__(self, model_address, broker_address, dataset,
-                 result_servicer, population, max_generations=100):
+                 result_servicer, population, result_path,
+                 max_generations=100, n_modules=5, n_epochs=10):
         self.task_count = 0
         self.model_address = model_address
         self.broker_address = broker_address
@@ -75,12 +76,15 @@ class ModelServer():
         result_pb2_grpc.add_ResultServiceServicer_to_server(self.result_servicer,
                                                             self.server)
         self.server.add_insecure_port(model_address)
-        self.model_runner = ModelRunner(model_address,
-                                        self.broker_client,
-                                        dataset,
-                                        self.result_servicer,
-                                        population,
-                                        max_generations)
+        self.model_runner = ModelRunner(model_address=model_address,
+                                        broker_client=self.broker_client,
+                                        dataset=dataset,
+                                        result_servicer=self.result_servicer,
+                                        population=population,
+                                        max_generations=max_generations,
+                                        n_modules=n_modules,
+                                        n_epochs=n_epochs,
+                                        result_path=result_path)
 
 
     def generate_task(self):
@@ -117,10 +121,16 @@ def get_args():
     parser.add_argument("--dataset", default="fashion_mnist",
                         help=("Dataset to use for training. Must be one of "
                               "fashion_mnist, mnist, or cifar10."))
-    parser.add_argument("--population_size", default=10,
+    parser.add_argument("--population_size", default=10, type=int,
                         help="Size of population.")
-    parser.add_argument("--n_modules", default=2,
+    parser.add_argument("--n_modules", default=3, type=int,
                         help="Max number of modules to use.")
+    parser.add_argument("--epochs", default=10, type=int,
+                        help="Number of epochs to train.")
+    parser.add_argument("--max_layer_size", default=5, type=int,
+                        help="Max layer size.")
+    parser.add_argument("--result_path", default="model_results.csv",
+                        help="Path to save model results.")
 
     return parser.parse_args()
 
@@ -140,7 +150,10 @@ def main():
                          broker_address=args.broker_address,
                          dataset=_DATASETS[args.dataset],
                          result_servicer=ResultServicer(),
-                         population=population)
+                         population=population,
+                         n_modules=args.n_modules,
+                         n_epochs=args.epochs,
+                         result_path=args.result_path)
     server.serve()
     
 if __name__ == "__main__":

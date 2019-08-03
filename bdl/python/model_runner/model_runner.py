@@ -25,8 +25,10 @@ class ModelRunner():
 
     def __init__(self, model_address, broker_client, dataset,
                  result_servicer, population, max_generations=100,
-                 n_modules=5):
+                 n_modules=5, n_epochs=10, result_path="model_results.csv"):
         self.dataset = dataset
+        self.result_path = result_path
+        self.n_epochs=n_epochs
         self.n_modules = n_modules
         self.model_address = model_address
         self.broker_client = broker_client
@@ -72,8 +74,8 @@ class ModelRunner():
             self.accuracies.append(out)
             self.result_tracker.pop(tid, None)
 
-    def save_results(self, path="model_results.csv"):
-        with open(path, "a") as f:
+    def save_results(self):
+        with open(self.result_path, "a") as f:
             for r in self.accuracies:
                 f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
         self.results = []
@@ -102,9 +104,11 @@ class ModelRunner():
                     continue
                 elif str(g.model()) in seen:
                     sent_models -= 1
+                    g.set_fitness(-1)
                     should_discard.add(g)
                     continue
-                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=2,
+                seen.add(str(g.model()))
+                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=self.n_epochs,
                                 n_modules=self.n_modules)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
@@ -125,14 +129,12 @@ class ModelRunner():
             self._process_results(generation, sent_models, 5*60)
 
             # Update population using tournament selection
-            keepers = []
-            while len(keepers) < self.population.n:
-                g1, g2 = np.random.choice(self.population.offspring, size=2)
-                if g1.fitness() > g2.fitness():
-                    keepers.append(g1)
-                else:
-                    keepers.append(g2)
-            self.population.update_population(keepers)
+            pop = set(self.population.offspring)
+            pop.difference_update(should_discard)
+            pop = list(pop)
+            pop.sort(key=lambda x: x.fitness(), reverse=True)
+            self.population.update_population(pop[:self.population.n])
+
             logging.info("Updated population max fitness: {:.6f}".format(
                 self.population.max_fitness()))
                 
