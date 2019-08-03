@@ -1,6 +1,6 @@
 #!/bin/bash
 # Set out files
-N=4
+N=2
 NS_OUT="ns$N.out"
 B_OUT="broker$N.out"
 M_OUT="model$N.out"
@@ -40,6 +40,8 @@ nohup python3 python/worker.py \
       --cuda_device_id=3 > w2-$N.out &
 W2_PID=$!
 
+if [$N -gt 2]
+then
 nohup python3 python/worker.py \
       --debug \
       --broker_address=$BROKER_ADDR \
@@ -51,6 +53,34 @@ nohup python3 python/worker.py \
       --broker_address=$BROKER_ADDR \
       --cuda_device_id=5 > w4-$N.out &
 W4_PID=$!
+fi
+
+if [$N -gt 4]
+then
+nohup python3 python/worker.py \
+      --debug \
+      --broker_address=$BROKER_ADDR \
+      --cuda_device_id=2 > w1-$N.out &
+W5_PID=$!
+
+nohup python3 python/worker.py \
+      --debug \
+      --broker_address=$BROKER_ADDR \
+      --cuda_device_id=5 > w2-$N.out &
+W6_PID=$!
+
+nohup python3 python/worker.py \
+      --debug \
+      --broker_address=$BROKER_ADDR \
+      --cuda_device_id=6 > w3-$N.out &
+W7_PID=$!
+
+nohup python3 python/worker.py \
+      --debug \
+      --broker_address=$BROKER_ADDR \
+      --cuda_device_id=7 > w4-$N.out &
+W8_PID=$!
+fi
 
 echo "$N workers started. Starting model."
 
