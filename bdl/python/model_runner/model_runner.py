@@ -57,7 +57,7 @@ class ModelRunner():
         end = start + timeout * expected_n_results
         for i in range(expected_n_results):
             # Check timeout
-            if time.time() > end:
+            if time.time() > end or self.result_servicer.empty():
                 return
             result = self.result_servicer.pop(timeout=timeout*expected_n_results)
             if result is None:
@@ -92,18 +92,16 @@ class ModelRunner():
 
             # Evaluate candidate networks by sending network tasks to broker
             # for distribution to workers
-            sent_models = len(self.population.offspring)
+            sent_models = 0
             logging.debug("Sending {} models for evaluation.".format(sent_models))
             for g in self.population:
                 
-                if g.is_evaluated():
-                    sent_models -= 1
+                if g.is_evaluated() and str(g.model()) not in seen:
                     self.accuracies.append([generation, time.time() - self.start,
                                             g.fitness(), g.model()])
                     logging.debug("Skipping a previously evaluated model")
                     continue
                 elif str(g.model()) in seen:
-                    sent_models -= 1
                     g.set_fitness(-1)
                     should_discard.add(g)
                     continue
@@ -117,6 +115,7 @@ class ModelRunner():
                 logging.debug("Sending model {} of size {} bytes".format(g.model(),
                                                                          sys.getsizeof(g.model().layers)))
                 self.broker_client.send_task(t)
+                sent_models += 1
                 logging.debug("Sent task %s." % t.task_id)
                 self.result_tracker[t.task_id] = g
 

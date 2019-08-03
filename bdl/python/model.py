@@ -43,6 +43,8 @@ class ResultServicer(ResultServiceServicer):
         return self.result_q.empty()
 
     def pop(self, timeout):
+        if self.empty():
+            return None
         return self.result_q.get(timeout=timeout)
     
     def SendResult(self, request, context):

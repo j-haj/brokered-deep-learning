@@ -49,7 +49,7 @@ class NetworkTask(object):
                       (self.n_epochs, val_acc))
 
         # Clean up resources
-        self.free_memory()
+        del self.model
         del train_loader
         del val_loader
         
@@ -105,6 +105,3 @@ class NetworkTask(object):
                 correct += (predicted == y).sum().item()
         return correct / total
 
-    def free_memory(self):
-        del self.model
-        torch.cuda.empty_cache()
