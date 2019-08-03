@@ -191,7 +191,7 @@ A ReLU activation is used between layers
 
 \begin{figure*}
   \includegraphics{img/sample_arch}
-  \caption{Example of a constructed network.}
+  \caption[width=.75\textwidth]{Example of a constructed network.}
   \label{fig:sample-arch}
 \end{figure*}
 
@@ -373,15 +373,15 @@ of nodes, the ability to have Kubernetes manage system state within a large
 system can be quite valuable in a production system.
 
 One particularly unique aspect of the domain of neural architecture search is
-that it does not require low-latency communication. Each neural network can
-take anywhere from minutes to tens of minutes to train, which means the
-frequency of task and corresponding result messages is fairly low. One prior
-work even used a shared filesystem [CITE] to communicate between a model and the
-worker nodes. The long time interval between sending the task to the worker
-and receiving the result from the same worker means a single server could
-handle a potentially large number of connections with workers, certainly
-on the order of hundreds and possibly even thousancs. Anecdotally, we found
-a laptop with an Intel 4.2GHz i7 processor was able to handle over 200
+that it does not require low-latency communication. Each neural network can take
+anywhere from minutes to tens of minutes to train, which means the frequency of
+task and corresponding result messages is fairly low. One prior work
+\cite{DBLP:conf/icml/RealMSSSTLK17} even used a shared filesystem to communicate
+between a model and the worker nodes. The long time interval between sending the
+task to the worker and receiving the result from the same worker means a single
+server could handle a potentially large number of connections with workers,
+certainly on the order of hundreds and possibly even thousancs. Anecdotally, we
+found a laptop with an Intel 4.2GHz i7 processor was able to handle over 200
 connections of a heartbeat request and response service, similar to that
 depicted in Figure~\ref{fig:heartbeat}.
 
@@ -398,12 +398,12 @@ to a broker, a broker connecting to a broker (for broker-broker peering), or a
 worker connecting to a broker. The following sections will detail each
 components functionality individual and within the system as a whole.
 
-\begin{figure*}
+\begin{figure}
   \centering
-  \includegraphics{img/broker-arch.pdf}
+  \includegraphics[width=.85\columnwidth]{img/system-arch.pdf}
   \caption{Diagram of system architecture.}
   \label{fig:sys-arch}
-\end{figure*}
+\end{figure}
 
 \subsection{Model}
 The model is the problem-specific, user-defined logic that determines what work
@@ -591,8 +591,9 @@ don't detail the specifics of their system, we reviewed some of the available
 code on Github. A popular paradigm is using Python's \texttt{multiprocessing}
 module to run multiple models on a multi-GPU machine. These GPUs are fed from a
 thread-safe queue. PyTorch offers a data parallel module that handles this
-functionality while Tensorflow provides functionality for distributed training
-that relies on gRPC. 
+functionality  but currently struggles to fully utilize all available GPUs in
+settings with 8+ GPUs, per the PyTorch documentation.Tensorflow provides similar
+functionality for distributed training but instead relies on gRPC.
 
 A number of prior works use MPI in conjunction with deep learning libraries
 taking a data parallel approach \cite{Awan:2016:ELM:2966884.2966912,

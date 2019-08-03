@@ -33,6 +33,9 @@ class NetworkTask(object):
 
     def build_model(self):
         self.model = SimpleNN(self.tensor_shape, 10, self.layers, self.n_modules)
+        logging.debug("Model {} as {:.1f}M parameters".format(
+            self.layers,
+            sum(p.numel() for p in self.model.parameters() if p.requires_grad)/1e6))
         
     def run(self, cuda_device_id=None):
         if cuda_device_id is not None and torch.cuda.is_available():

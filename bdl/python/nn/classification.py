@@ -12,9 +12,10 @@ from torchvision import datasets, transforms
 from nn.genotype import Genotype
 from nn.layer import LayerType, Layer, layers_from_string
 
-_LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
-                LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
-_FILTER_SIZES = [5, 10, 20]
+#_LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_3x1_1x3,
+#                LayerType.CONV_5x5, LayerType.CONV_5x1_1x5]
+_LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_5x5]
+_FILTER_SIZES = [16, 32, 64, 128]
 
 
 class SimpleNN(nn.Module):
