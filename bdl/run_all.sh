@@ -6,9 +6,9 @@ B_OUT="broker$N.out"
 M_OUT="model$N.out"
 
 # Server addresses
-NAMESERVER_ADDR="localhost:10003"
-BROKER_ADDR="localhost:10005"
-MODEL_ADDR="localhost:20003"
+NAMESERVER_ADDR="localhost:10001"
+BROKER_ADDR="localhost:10002"
+MODEL_ADDR="localhost:20002"
 
 # Start nameserver
 nohup go run nameserver/nameserver.go -nameserver_address=$NAMESERVER_ADDR > $NS_OUT &
@@ -29,7 +29,7 @@ sleep .5
 nohup python3 python/worker.py \
       --debug \
       --broker_address=$BROKER_ADDR \
-      --cuda_device_id=0 > w1$N.out &
+      --cuda_device_id=0 > w1-$N.out &
 W1_PID=$!
 
 nohup python3 python/worker.py \

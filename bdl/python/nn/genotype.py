@@ -42,13 +42,17 @@ class Population(object):
     def generate_offspring(self):
         self.offspring = [x for x in self.population]
         # Create child population
-        for i in range(self.n):
-            idx = np.random.choice([j for j in range(self.n) if j != i])
+        for i in range(len(self.population)):
+            idx = np.random.choice([j for j in range(len(self.population)) if j != i])
             self.offspring += self.population[i].mate(self.population[idx])
         assert len(self.offspring) >= 2 * self.n
 
     def update_population(self, new_population):
         self.population = new_population
+        if len(new_population) != self.n:
+            logging.error(("Added population with different size from start: "
+                           "expected: %d got: %d") % (self.n, len(new_population)))
+        self.n = len(new_population)
         self.offspring = []
 
     def should_be_pared(self):

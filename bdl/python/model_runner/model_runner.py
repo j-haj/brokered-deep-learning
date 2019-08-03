@@ -57,7 +57,7 @@ class ModelRunner():
         end = start + timeout * expected_n_results
         for i in range(expected_n_results):
             # Check timeout
-            if time.time() > end or self.result_servicer.empty():
+            if time.time() > end:
                 return
             result = self.result_servicer.pop(timeout=timeout*expected_n_results)
             if result is None:

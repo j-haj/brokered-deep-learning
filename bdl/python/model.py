@@ -43,9 +43,11 @@ class ResultServicer(ResultServiceServicer):
         return self.result_q.empty()
 
     def pop(self, timeout):
-        if self.empty():
-            return None
-        return self.result_q.get(timeout=timeout)
+        try:
+            r = self.result_q.get(timeout=timeout)
+        except:
+            r = None
+        return r
     
     def SendResult(self, request, context):
         logging.debug("Received result with task_id: {}".format(request.task_id))
