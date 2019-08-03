@@ -34,7 +34,9 @@ class NetworkTask(object):
     def build_model(self):
         self.model = SimpleNN(self.tensor_shape, 10, self.layers, self.n_modules)
         
-    def run(self):
+    def run(self, cuda_device_id=None):
+        if cuda_device_id is not None and torch.cuda.is_available():
+            self.device = torch.device("cuda:%d" % cuda_device_id)
         logging.debug("Training network: {}".format(self.layers))
         train_loader, val_loader = self.get_data()
         self.build_model()

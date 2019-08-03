@@ -21,7 +21,8 @@ def append_to_file(accuracies, path="single_model_results.csv"):
         for r in accuracies:
             f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
 
-def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
+def run(population, dataset, n_epochs, result_path,
+        cuda_device_id=None, n_generations=100, n_modules=3):
     start = time.time()
     accuracies = []
     initial_size = len(population.population)
@@ -50,7 +51,10 @@ def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
             
             m = NetworkTask(g.model().to_string(), dataset, 128, n_epochs=n_epochs,
                             n_modules=n_modules)
-            r = m.run()
+            if cuda_device_id is not None:
+                r = m.run(cuda_device_id)
+            else:
+                r = m.run()
             accuracies.append([generation, time.time() - start,
                                r.accuracy(), g.model()])
             seen.add(str(g.model()))
@@ -62,7 +66,7 @@ def run(population, dataset, n_epochs, n_generations=100, n_modules=3):
         population.update_population(pop[:initial_size])
 
         logging.debug("Appending accuracies to results file.")
-        append_to_file(accuracies)
+        append_to_file(accuracies, result_path)
         accuracies = []
 
 def get_args():
@@ -76,6 +80,11 @@ def get_args():
                         help="Max number of layers per module.")
     parser.add_argument("--n_epochs", type=int, default=5, help="Number of epochs.")
     parser.add_argument("--n_modules", type=int, default=5, help="Number of modules.")
+    parser.add_argument("--result_path", help="File path for results.")
+    parser.add_argument("--n_generations", type=int, default=20,
+                        help="Number of generations.")
+    parser.add_argument("--cuda_device_id", type=int, default=0,
+                        help="CUDA device ID to use.")
     return parser.parse_args()
 
 
@@ -95,9 +104,12 @@ def main():
                             EvoBuilder(args.max_layer_count))
     run(population,
         dataset=_DATASETS[args.dataset],
+        result_path=args.result_path,
+        cuda_device_id=args.cuda_device_id,
+        n_generations=args.n_generations,
         n_epochs=args.n_epochs,
         n_modules=args.n_modules)
-    pass
+
 
 if __name__ == "__main__":
     main()
