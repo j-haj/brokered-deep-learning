@@ -6,6 +6,7 @@ class LayerType(Enum):
     CONV_3x1_1x3 = "3113"
     CONV_5x5 = "55"
     CONV_5x1_1x5 = "5115"
+    CONV_7x7 = "77"
     CONV_1x1 = "11"
 
     @staticmethod
@@ -18,6 +19,8 @@ class LayerType(Enum):
             return LayerType.CONV_5x5
         elif s.startswith("5115"):
             return LayerType.CONV_5x1_1x5
+        elif s.startswith("77"):
+            return LayerType.CONV_7x7
         elif s.startswith("11"):
             return LayerType.CONV_1x1
         else:
