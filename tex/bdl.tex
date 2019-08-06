@@ -136,16 +136,29 @@ system in a manner that takes advantage of the physical network architecture.
 
 \section{Neural Architecture Search}
 The goal of neural architecture search (NAS) is to find an optimal neural
-network architecture for a given problem. NAS is computationally intensive due
-to the cost of evaluating networks, which involves both training and validating
-the network.
-Although recent novel approaches have dramatically reduced
-this cost \cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these
-techniques fix certain elements of the design process, somewhat limiting the
-available architectures. Despite the computationally intense nature of the NAS
-problem, the task itself is trivially parallelizable across the network
-evaluations --- two separate networks can be trained simultaneously before being
-evaluated against eachother.
+network architecture for a given problem. Denote the training data as
+$X_{\text{tr}}$ and $y_{\text{tr}}$, and a trained neural network as
+$\Psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}})$, then the problem
+neural architecture search attempts to solve is given by
+Equation~\eqref{eq:problem}.
+\begin{equation}\label{eq:problem}
+\Psi^* = \arg\min_{\Psi \in \mathcal{A}} L(X_{\text{val}}, y_{\text{val}}; \Psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}}))
+\end{equation}
+
+where $X_{\text{val}}$ and $y_{\text{val}}$ are validation datasets and $L$
+is a loss function. We use the negative log-likelihood loss function. The
+space of neural network architectures is denoted $\mathcal{A}$ and is an
+infinite dimensional space.
+
+NAS is computationally intensive due to the cost of evaluating networks, which
+involves both training and validating the network.  Although recent novel
+approaches have dramatically reduced this cost
+\cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these techniques fix
+certain elements of the design process, somewhat limiting the available
+architectures. Despite the computationally intense nature of the NAS problem,
+the task itself is trivially parallelizable across the network evaluations ---
+two separate networks can be trained simultaneously before being evaluated
+against eachother.
 
 The two common approaches to NAS are reinforcement learning based approaches such
 as \cite{45826, Kyriakides:2018:NAS:3200947.3208068, pmlr-v80-pham18a}, and
