@@ -138,11 +138,11 @@ system in a manner that takes advantage of the physical network architecture.
 The goal of neural architecture search (NAS) is to find an optimal neural
 network architecture for a given problem. Denote the training data as
 $X_{\text{tr}}$ and $y_{\text{tr}}$, and a trained neural network as
-$\Psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}})$, then the problem
+$\psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}})$, then the problem
 neural architecture search attempts to solve is given by
 Equation~\eqref{eq:problem}.
 \begin{equation}\label{eq:problem}
-\Psi^* = \arg\min_{\Psi \in \mathcal{A}} L(X_{\text{val}}, y_{\text{val}}; \Psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}}))
+\psi^* = \arg\min_{\Psi \in \mathcal{A}} \mathcal{L}(X_{\text{val}}, y_{\text{val}}; \psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}}))
 \end{equation}
 
 where $X_{\text{val}}$ and $y_{\text{val}}$ are validation datasets and $L$
@@ -580,14 +580,14 @@ analyze how this value changes with the addition of worker nodes as well
 as how the system reacts to losing worker nodes.
 \subsection{Scalability}
 Figure~\ref{fig:scale} shows the scaling results, which are computed as the
-geometric mean across five generations of neural network evolution. Five
-generations was chosen primarily due to resource limits. The relative scaling
-decreases as the number of workers (GPUs) increases primarily due to an
-increase in the rate of idle workers and worker failures. More workers
-means the workers are able to evaluate the candidate networks (composing a
-generation) in a shorter total amount of time; however, not all networks
-take the same amount of time to evaluate, leading some workers to remain
-idle while waiting for other workers to finish.
+geometric mean across five generations of neural network evolution. We chose to
+stop after only five generations primarily due to resource limits.  The relative
+scaling decreases as the number of workers (GPUs) increases primarily due to an
+increase in the rate of idle workers and worker failures. More workers means the
+workers are able to evaluate the candidate networks (composing a generation) in
+a shorter total amount of time; however, not all networks take the same amount
+of time to evaluate, leading some workers to remain idle while waiting for other
+workers to finish.
 
 The other issue impacting the scalability of the system is worker
 failures. With larger worker counts the system encountered larger models
@@ -595,7 +595,8 @@ sooner and some of these models exhausted the GPU's memory. We also
 suspect there was a GPU memory leak in our PyTorch code but were unable
 to find the root cause. We manually restarted failed workers; however,
 we were not constantly monitoring worker status and as a result the higher
-worker runs were sometimes running several workers down. This is a great
+worker runs were sometimes running several workers down, reducing the overall
+network evaluation throughput of the system. This is a great
 example of a scenario where an orchestration system such as Kubernetes,
 Apache Mesos, or similar offerings from AWS, GCP, and Microsoft Azure.
 The ability to automatically restart failed workers would have improved
@@ -627,18 +628,21 @@ Table~\ref{tab:failures} raises another interesting issue with respsect
 to keep workers busy evaluating network architectures. Handling a failed
 worker is relatively simple: the model tracks how many networks were
 sent for evaluation and pops the same number of results off the result
-queue, which blocks for a specified timeout. We new from experience the
+queue, which blocks for a specified timeout. We new from experience that the
 average network took about two minutes to train, so we set the timeout to
 five minutes times the number of models sent for evaluation. This works
-but is incredibly inefficient for the workers who are sitting idle when
-they could have been evaluating two additional networks each. Idle servers
+but is very inefficient for the workers who are sitting idle when
+they could have been evaluating two additional networks each. More importantly,
+it holds up the system while waiting for a (failed) worker to finish.
+Idle servers
 are expensive, especially when running specialized hardware on services
 such as AWS or GCP.
 
-One possible solution is to switch from a generational approach to evolution
-and use a competition-based approach. In the competition approach the model
-waits for the result queue to have two results and drops the network architecture
-that has a worse fitness (validation accuracy, in this case).
+One possible solution is to switch from a generational approach to a steady-state
+approach and use tournament selection, where survival is determined by comparing
+two individuals and keeping the fitter of the two. The advantage to this approach
+is the number of outstanding network evaluations does not impact the ability of
+the model to generate new candidates.
 
 \subsection{Found Architectures}
 Figure~\ref{fig:best} shows the best found architecture after five generations.
@@ -675,7 +679,7 @@ validation accuracy of 10.1\%.
 \end{figure}
 
 \section{Related Work}
-The idea of a brokered message queue is not new. RabbitMQ [CITE] is a general
+The idea of a brokered message queue is not new. RabbitMQ \cite{rabbitmq} is a general
 purpose message broker that supports the same functionality demonstrated
 in this paper, but messages are delivered based on a routing key, rather than
 the first available worker. Similar to the RPC message definitions used in
@@ -686,30 +690,29 @@ more complex to setup and run.
 Both RabbitMQ and Kafka are robust to failures. At the other end of the
 spectrum, $\varnothing$MQ is a low-level messaging library that can be used
 to build a performant, brokered messaging system similar to the one described
-in this paper.
+in this paper. Unfortunately, $\varnothing$MQ is not suitable for use in a
+domain where implementation language may change frequently due to its lack of
+an IDL. Lacking an IDL means the client and server code will need to be rewritten
+in each language in addition to requiring new users to read the source code to
+understand the pattern of communication rather than simply reading the IDL
+specification. Of course, a good system architecture and design document allevaites
+the need to read the source code, regardless of the chosen language or technology.
 
-A natural question at this point in the work is why we would bother building our
+A natural question is why we would bother building our
 own brokered system when there are industrial strength alternatives
 available. These message passing systems\footnote{We use this as a generic term,
-  since Kafka is not really a message queue.} stricly deal with sending and
+  since Kafka is not really a message queue.} strictly deal with sending and
 delivering messages in a scalable and robust manner. Our broker does more than
-simply relay messages---the broker is determining retry logic, hadling lost
-tasks, [ADD OTHER STUFF].
+simply relay messages---the broker is determining retry logic, handling lost
+tasks, balancing worker load, etc. These technologies are substitutes for RPC
+rather than alternatives to the proposed system architecture.
 
-Tensorflow \cite{tensorflow2015-whitepaper} offers some distributed training
+Both PyTorch\cite{paszke2017automatic} and Tensorflow
+\cite{tensorflow2015-whitepaper} offer some distributed training
 facilities. Other work such as Horovod \cite{DBLP:journals/corr/abs-1802-05799}
-has improved upon Tensorflow's built-in distributed training facilities. Work
-has also been done on training deep learning models using MPI
-\cite{pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}. However, all of these
-works suffer from fault tolerance of workers and elastic compute
-environments. Additionally, they require that MPI is installed on the cluster,
-which is not an issue if the software is running on a University research
-cluster or at a national lab, but requires the user to setup the underlying MPI
-installation if run on a provisioned AWS, GCP, or Azure cluster.
-
-MXNet \cite{DBLP:journals/corr/ChenLLLWWXXZZ15} introduces a declarative language
-used to build a computation graph, which is then optimized and evaluated by the
-MXNet engine, similar to Tensorflow pre-2.0. [NEEDS ADDITIONAL WORK]
+has improved upon Tensorflow's built-in distributed training facilities. 
+None of these handle node failure by default, though we note that Tensorflow's
+distributed training framework does support running on Kubernetes.
 
 Much of the previous work on neural architecture search uses some form of a
 distributed architecture consisting of a model, (possible) a coordinator, and workers. The
@@ -724,15 +727,17 @@ functionality for distributed training but instead relies on gRPC.
 
 A number of prior works use MPI in conjunction with deep learning libraries
 taking a data parallel approach \cite{Awan:2016:ELM:2966884.2966912,
-  Awan:2017:SCM:3018743.3018769}. This is familiar to other work that takes
+  Awan:2017:SCM:3018743.3018769, pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}.
+This is familiar to other work that takes
 advantage of multithreading (such as Python's \texttt{multiprocessing} module)
 but utilizes much larger systems. Awan et. al.
 \cite{Awan:2018:OBD:3236367.3236381} build a model parallel system using
 MPI, relying on MPI's efficient communication primitives to avoid excessive
 blocking when cross-node dependencies. Unfortunately, all of these works
-require MPI on the system they are running, which adds another dependency
-to the software stack. These works also are unable to utilize newly available
-resources without restarting the running process.
+require MPI on the system they are running, which is not an issue if the application
+is running on a University research
+cluster or at a national lab, but requires the user to setup the underlying MPI
+installation if run on a provisioned AWS, GCP, or Azure cluster.
 
 Others \cite{journals/corr/MoritzNSJ15, journals/corr/KimPJY16} use Spark
 \cite{Zaharia:2016:ASU:3013530.2934664} to
@@ -755,7 +760,7 @@ issue. Spark does not handle iterative-style algorithms particularly well,
 primarily due to the shuffle-stage of MapReduce (since Spark is built on
 top of Hadoop).
 
-\section{Conclusion}
+\section{Future Work}
 One unexplored avenue of potential future work is reusing the discarded
 neural network architectures in an ensemble. Much of the NAS literature
 finishes the search with the best found architecture---it would be interesting
@@ -763,6 +768,25 @@ to explore a comparison between the best architecture and an ensemble of
 architectures taking into account communication overhead and voting required
 by the ensemble.
 
+Another interesting avenue of work would be a more in-depth comparison of
+building systems with RPC versus other message passing frameworks like
+$\varnothing$MQ, RabbitMQ, and Kafka. Specifically, what are the settings
+in which the alternatives are particularly well suited and what are the
+settings in which they struggle. Just as importantly, are there notable
+differences in message latency, bandwidth, and usability? These are all
+interesting considerations that may be known in industry through experience
+but, as far as we know, have not been formally studied.
+
+Laslty, further investigation into how steady-state evolution impacts
+system performance both in terms of throughput and quality of evolved
+individuals in the domain of neural architecture search is meritted.
+Some prior work as been done comparing generational
+and steady-state evolutionary algorithms in a parallel setting, such as
+\cite{10.1007/3-540-45356-3_40, 10.1007/978-3-540-30217-9_26,
+  Zavoianu:2015:PCG:2827032.2827154}. A steady-state approach would allow
+a truly asynchronous system with minimal idle nodes.
+
+\section{Conclusion}
 It can be tempting to think of system design as an all-or-nothing
 decision---either build a system with MPI or build a system using RPCs. An
 interesting avenue for future work is combining the two. Consider a workload
