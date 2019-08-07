@@ -46,16 +46,26 @@ suely-oliveira@uiowa.edu}
 \maketitle
 
 \begin{abstract}
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
-  word word word word word word word word word word
+  The computational demands of neural architecture search make it a prime target
+  of parallel computing. Despite the implementation challenges of building a
+  system that uses evolutionary algorithms or reinforcement learning to design
+  neural networks, the reall hurdle in neural architecture systems is making them
+  scalable and fault-tolerant. Scalability is important because training time
+  and network complexity are typically correlated and as the search finds more
+  complicated network architectures the training time per architecture will
+  likely increase. Scalability allows the user to increase the compute resources
+  of the system as they are needed (e.g., at later stages in the search). Similary,
+  fault-tolerance is another important aspect to such a system. Neural networks
+  typically have tens of millions of parameters, but it is not unheard of for
+  neural networks to have hundreds of millions or billions of parameters. Because
+  NAS does not have any concept of the the \emph{size} of the network, it may
+  generate an unreasonably large network that will exhaust the available memory
+  of the GPU being used to train the network. This memory exhaustion typically
+  crashes the training program.
+  We propose a system architecture for distributed neural architecture search
+  using RPC. Our system is robust to node failures and is able to add or remove
+  compute resources while running. We demonstrate this system on the CIFAR-10
+  dataset, achieving near linear scaling.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -86,6 +96,12 @@ criteria and provide better communication infrastructure for large-scale
 deep learning worklaods over MPI, which either does not offer, or offers with
 significant implementation overhead.
 
+\begin{figure}
+  \centering
+  \includegraphics[width=.85\columnwidth]{img/system-arch.pdf}
+  \caption{Diagram of system architecture.}
+  \label{fig:sys-arch}
+\end{figure}
 In this work we propose an RPC-based system for distributed deep learning. We
 experiment with the proposed architecture in the domain of neural architecture
 search (NAS), a computationally intensive problem that trains thousands of deep
@@ -107,7 +123,8 @@ computationally intensive distributed system using RPC:
   Container Engine.
 \end{itemize}
 
-Our system consists of four separate pieces: a \emph{model} that directs the
+Our system consists of four separate pieces, shown in Figure~\ref{fig:sys-arch}:
+a \emph{model} that directs the
 search for a network architecture, a number of \emph{workers} that perform the
 computational work of training and evaluating the network architectures, at
 least one \emph{broker} that forms the data pipeline from model to workers, and
@@ -431,12 +448,6 @@ to a broker, a broker connecting to a broker (for broker-broker peering), or a
 worker connecting to a broker. The following sections will detail each
 components functionality individual and within the system as a whole.
 
-\begin{figure}
-  \centering
-  \includegraphics[width=.85\columnwidth]{img/system-arch.pdf}
-  \caption{Diagram of system architecture.}
-  \label{fig:sys-arch}
-\end{figure}
 
 \subsection{Model}
 The model is the problem-specific, user-defined logic that determines what work
@@ -610,21 +621,28 @@ the overall scalability results.
   \label{fig:scale}
 \end{figure}
 
-\begin{table}
+\begin{figure}
   \centering
-  \caption{Failures over time}
-  \label{tab:failures}
-  \begin{tabular}{cc}\toprule
-    \textbf{Workers} & \textbf{\# Failures}\\\midrule
-    1 & 0\\
-    2 & 0\\
-    4 & 2\\
-    8 & 8\\
-    16 & 13\\\bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\columnwidth]{result/output/failures}
+  \caption{Number of worker failures for a given number of workers.}
+  \label{fig:failures}
+\end{figure}
+
+% \begin{table}
+%   \centering
+%   \caption{Failures over time}
+%   \label{tab:failures}
+%   \begin{tabular}{cc}\toprule
+%     \textbf{Workers} & \textbf{\# Failures}\\\midrule
+%     1 & 0\\
+%     2 & 0\\
+%     4 & 2\\
+%     8 & 8\\
+%     16 & 13\\\bottomrule
+%   \end{tabular}
+% \end{table}
 \subsection{Node Failures}
-Table~\ref{tab:failures} raises another interesting issue with respsect
+Figure~\ref{fig:failures} raises another interesting issue with respsect
 to keep workers busy evaluating network architectures. Handling a failed
 worker is relatively simple: the model tracks how many networks were
 sent for evaluation and pops the same number of results off the result
@@ -664,14 +682,14 @@ validation accuracy of 10.1\%.
 
 \begin{figure}
   \centering
-  \includegraphics[height=.45\textheight]{img/best-model}
+  \includegraphics[height=.95\textheight]{img/best-model}
   \caption{Architecture of best found network.}
   \label{fig:best}
 \end{figure}
 
 \begin{figure}
   \centering
-  \includegraphics[height=.45\textheight]{img/good-bad}
+  \includegraphics[height=.95\textheight]{img/good-bad}
   \caption{(left) Architecture of a network performing close to the
     best found architecture. (right) Architecture of a network performing
     at the bottom of all found networks.}
