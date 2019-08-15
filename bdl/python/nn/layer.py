@@ -8,6 +8,8 @@ class LayerType(Enum):
     CONV_5x1_1x5 = "5115"
     CONV_7x7 = "77"
     CONV_1x1 = "11"
+    MAX_POOL = "max_pool"
+    AVG_POOL = "avg_pool"
 
     @staticmethod
     def from_string(s):
@@ -23,6 +25,10 @@ class LayerType(Enum):
             return LayerType.CONV_7x7
         elif s.startswith("11"):
             return LayerType.CONV_1x1
+        elif s.startswith("max_pool"):
+            return LayerType.MAX_POOL
+        elif s.startswith("avg_pool"):
+            return LayerType.AVG_POOL
         else:
             raise ValueError("Unrecognized layer string: %s" % s)
 

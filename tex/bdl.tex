@@ -11,6 +11,7 @@
 \usepackage{listings}
 \usepackage{sourcecodepro}
 \usepackage{textcomp}
+\usepackage{url}
 \usepackage{xcolor}
 
 \lstset{
@@ -46,94 +47,112 @@ suely-oliveira@uiowa.edu}
 \maketitle
 
 \begin{abstract}
-  The computational demands of neural architecture search make it a prime target
-  of parallel computing. Despite the implementation challenges of building a
-  system that uses evolutionary algorithms or reinforcement learning to design
-  neural networks, the reall hurdle in neural architecture systems is making them
-  scalable and fault-tolerant. Scalability is important because training time
-  and network complexity are typically correlated and as the search finds more
-  complicated network architectures the training time per architecture will
-  likely increase. Scalability allows the user to increase the compute resources
-  of the system as they are needed (e.g., at later stages in the search). Similary,
-  fault-tolerance is another important aspect to such a system. Neural networks
-  typically have tens of millions of parameters, but it is not unheard of for
-  neural networks to have hundreds of millions or billions of parameters. Because
-  NAS does not have any concept of the the \emph{size} of the network, it may
-  generate an unreasonably large network that will exhaust the available memory
-  of the GPU being used to train the network. This memory exhaustion typically
-  crashes the training program.
-  We propose a system architecture for distributed neural architecture search
-  using RPC. Our system is robust to node failures and is able to add or remove
-  compute resources while running. We demonstrate this system on the CIFAR-10
-  dataset, achieving near linear scaling.
+  Building reliable systems for neural architecture search requires careful
+  design consideration due to the high computational demands coupled with the
+  necessity of fault-tolerance. In this domain, it is not uncommon for
+  applications to crash due to GPU memory exhaustion, which makes MPI unsuitable
+  as the communication layer for a distributed neural architecture search
+  system. We propose an RPC-based system that is robust
+  to node failures and provides elastic compute abilities, allowing the system
+  to add or remove computational resources as needed.  Our system achieves near
+  linear scaling and is robust to multiple GPU node failures, allowing the
+  failed nodes to restart and rejoin.
 \end{abstract}
 
 \begin{IEEEkeywords}
-distributed deep learning, neural architecture search, artificial intelligence
+  distributed deep learning, neural architecture search, artificial intelligence,
+  RPC, distributed system
 \end{IEEEkeywords}
 
 \section{Introduction}
-Building robust and scalable distributed applications is challenging --- getting
-communications patterns correct, handling node failures, and allowing for
-elastic compute resources (where compute nodes may join or leave the system
-throughout the life of the application) all contribute to a high level of
-complexity. These challenges are exacerbated for long-runnining applications
-such as training large deep learning models or neural architecture search. Among
-the many popular frameworks for distributed programming, MPI
-\cite{Forum:1994:MMI:898758} combined with additional accelerator paradigms such
-as OpenMP \cite{Dagum:1998:OIA:615255.615542}, OpenACC
-\cite{Wienke:2012:OFE:2402420.2402522}, and CUDA
-\cite{Nickolls:2008:SPP:1365490.1365500} is the common choice for
-performance-critical numerical workloads. In the deep learning setting, MPI is
-less popular with many favoring mutli-threading in combination with multiple
-GPUs, and more recently experimenting with Kubernetes \cite{8094194,
-  8672301}. The fault tolerance required for long-running model training (which
-can last on the order of months in the industrial setting) makes MPI a poor
-choice for the underlying communication infrastructure. These types of applications
-benefit from communication frameworks that are robust to failure and allow
-for elastic compute settings. Remote procedure calls (RPCs) meet these
-criteria and provide better communication infrastructure for large-scale
-deep learning worklaods over MPI, which either does not offer, or offers with
-significant implementation overhead.
+The computational demands of neural architecture search (NAS) make it ideal
+for a parallel computing solution. Despite the implementation challenges of building
+a system that uses evolutionary algorithms or reinforcement learning to design
+neural networks, the main obstacle in neural architecture search systems is
+making them scalable and fault-tolerant. Scalability is important because
+training time and neural network complexity are typically correlated, thus as the search
+finds more complicated network architectures the training time per architecture
+typically increases. This illustrates the value in allowing the user to increase the compute
+resources available to the system as they are needed (e.g., at later stages in the
+search). Similarly, fault-tolerance is important to such a system because node
+failures are common, particularly GPU node failures.  Neural networks typically
+have tens of millions of parameters and sometimes as much as hundreds of millions
+or even billions of parameters. Because NAS
+does not have any concept of the the \emph{size} of the network it is
+generating, it may generate an unreasonably large network that will exhaust the
+available memory of the GPU being used to train the network. This memory
+exhaustion may crash the training program and result in the loss of a compute node.
+In this work, we propose a system
+architecture for distributed neural architecture search and build the underlying
+messaging system using remote procedure calls (RPC). Our system is
+robust to node failures and is able to add or remove compute resources while
+running. We demonstrate this system on the CIFAR-10 data set \cite{cifar10-data},
+achieving near linear scaling.
 
+% Building robust and scalable distributed applications is challenging --- getting
+% communications patterns correct, handling node failures, and allowing for
+% elastic compute resources (where compute nodes may join or leave the system
+% throughout the life of the application) all contribute to a high level of
+% complexity. These challenges are exacerbated for long-runnining applications
+% such as training large deep learning models or neural architecture search. Among
+% the many popular frameworks for distributed programming, MPI
+% \cite{Forum:1994:MMI:898758} combined with additional accelerator paradigms such
+% as OpenMP \cite{Dagum:1998:OIA:615255.615542}, OpenACC
+% \cite{Wienke:2012:OFE:2402420.2402522}, and CUDA
+% \cite{Nickolls:2008:SPP:1365490.1365500} is the common choice for
+% performance-critical numerical workloads. In the deep learning setting, MPI is
+% less popular with many favoring mutli-threading in combination with multiple
+% GPUs, and more recently experimenting with Kubernetes \cite{8094194,
+%   8672301}. The fault tolerance required for long-running model training (which
+% can last on the order of months in the industrial setting) makes MPI a poor
+% choice for the underlying communication infrastructure. These types of applications
+% benefit from communication frameworks that are robust to failure and allow
+% for elastic compute settings. Remote procedure calls (RPCs) meet these
+% criteria and provide better communication infrastructure for large-scale
+% deep learning worklaods over MPI, which either does not offer, or offers with
+% significant implementation overhead.
+% 
 \begin{figure}
   \centering
   \includegraphics[width=.85\columnwidth]{img/system-arch.pdf}
   \caption{Diagram of system architecture.}
   \label{fig:sys-arch}
 \end{figure}
-In this work we propose an RPC-based system for distributed deep learning. We
-experiment with the proposed architecture in the domain of neural architecture
-search (NAS), a computationally intensive problem that trains thousands of deep
-neural networks in search of an optimal network architecture.  We use this
+We chose the domain of neural architecture search because of its high
+computational demands, long application lifetime (when compared to the
+typical deep learning workload), and increased likelihood of node failures.
+We use this
 problem domain to illustrate four primary advantages to building a
 computationally intensive distributed system using RPC:
 \begin{itemize}
-\item RPC's higher level of abstraction over MPI simplifies the process of
+\item RPC's higher level of abstraction when compared to MPI simplifies the process of
   building more complex systems and communication patterns.
 \item The user can avoid lower-level message serialization and deserialization
   (e.g., buffer allocation and deallocation)
-  through RPC coupled with frameworks such as Protocol Buffers or Thrift.
-\item RPC systems don't require underlying software or resource managers --- a
-  user can create an AWS instance and immediately run their RPC-based code.
-\item RPC-based systems can offer elastic compute abilities, adding or removing
+  through RPC coupled with a framework such as Protocol Buffers\cite{Varda2008}
+  or Apache Thrift \cite{Slee2007}.
+\item RPC systems do not require underlying software or resource managers. A
+  user can create an Amaxon Web Services (AWS) instance and immediately run their RPC-based code.
+\item RPC-based systems offer elastic compute abilities, allowing the addition
+  or removal of
   nodes as needed without needing to stop or restart the system. This can be
-  particularly useful when combined with an orchestration technology such as
-  Kubernetes, Amazon Container Service, Azure Container Service, or Google
-  Container Engine.
+  particularly useful when combined with technologies such as
+  Kubernetes \cite{43826} or Aapche Mesos \cite{Hindman:2011:MPF:1972457.1972488}.
 \end{itemize}
 
-Our system consists of four separate pieces, shown in Figure~\ref{fig:sys-arch}:
+Figure~\ref{fig:sys-arch} illustrates the system architecture, which consists of
+four separate pieces:
 a \emph{model} that directs the
 search for a network architecture, a number of \emph{workers} that perform the
 computational work of training and evaluating the network architectures, at
 least one \emph{broker} that forms the data pipeline from model to workers, and
 a \emph{nameserver} that simplifies the process of adding new brokers, workers,
-and models to the system in addition to managing system metadata. Our system
-also offers elastic compute resources, allowing an arbitrary number of workers
+and models to the system in addition to managing system metadata. Using RPC
+gives our system the ability to
+offer elastic compute resources, allowing an arbitrary number of workers
 to join during high computational loads as well as allowing workers to leave the
 system during periods of reduced computational load, decreasing the overall
-available compute, without needing to restart or manual intervention.  The
+available compute, without needing to restart.  The
 system is fault-tolerant to the loss of workers or brokers and is highly
 scalable due to the ability of the brokers to share work and compute
 resources. Perhaps most importantly from a usability perspective, our system is
@@ -148,49 +167,52 @@ Although we are proposing RPC as an alternative to MPI, it is important to note
 that we are not claiming RPC is superior to MPI in every problem domain. In the
 domain of distributed deep learning, RPC offers many useful features. In other
 domains, such as distributed linear algebra, MPI is probably a better choice due
-to its built in ability to efficiently broadcast messages to nodes within a
+to its built-in ability to efficiently broadcast messages to nodes within a
 system in a manner that takes advantage of the physical network architecture.
 
-\section{Neural Architecture Search}
+\section{Evolutionary Neural Architecture Search}
 The goal of neural architecture search (NAS) is to find an optimal neural
 network architecture for a given problem. Denote the training data as
-$X_{\text{tr}}$ and $y_{\text{tr}}$, and a trained neural network as
-$\psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}})$, then the problem
+$X_{\text{tr}}$ and $\mathbf{y}_{\text{tr}}$, and a trained neural network as
+$\psi(\mathbf{x}; X_{\text{tr}}, \mathbf{y}_{\text{tr}})$, then the problem
 neural architecture search attempts to solve is given by
-Equation~\eqref{eq:problem}.
+Equation~\eqref{eq:problem},
 \begin{equation}\label{eq:problem}
-\psi^* = \arg\min_{\Psi \in \mathcal{A}} \mathcal{L}(X_{\text{val}}, y_{\text{val}}; \psi(\mathbf{x}; X_{\text{tr}}, y_{\text{tr}}))
+\psi^* = \arg\min_{\psi \in \mathcal{A}} \mathcal{L}(X_{\text{val}}, y_{\text{val}}; \psi(\mathbf{x}; X_{\text{tr}}, \mathbf{y}_{\text{tr}}))
 \end{equation}
+where $X_{\text{val}}$ and $\mathbf{y}_{\text{val}}$ are validation data sets and
+$\mathcal{L}$ is a function that measures the loss from evaluating a network
+architecture, $\psi(\mathbf{x}; X_{\text{tr}}, \mathbf{y}_{\text{tr}})$, using
+validation data $(X_{\text{val}}, \mathbf{y}_{\text{val}})$. We use the negative
+log-likelihood loss function. The space of neural network architectures is
+denoted $\mathcal{A}$ and is an infinite dimensional space. Our goal is to find
+a neural network architecture $\psi \in \mathcal{A}$ that minimizes the loss
+$\mathcal{L}$.
 
-where $X_{\text{val}}$ and $y_{\text{val}}$ are validation datasets and $L$
-is a loss function. We use the negative log-likelihood loss function. The
-space of neural network architectures is denoted $\mathcal{A}$ and is an
-infinite dimensional space.
-
-NAS is computationally intensive due to the cost of evaluating networks, which
-involves both training and validating the network.  Although recent novel
-approaches have dramatically reduced this cost
+Neural architecture search is computationally intensive due to the cost of
+evaluating networks, which involves both training and validating the network.
+Although recent novel approaches have dramatically reduced this cost
 \cite{DBLP:journals/corr/abs-1708-05344, pmlr-v80-pham18a}, these techniques fix
 certain elements of the design process, somewhat limiting the available
-architectures. Despite the computationally intense nature of the NAS problem,
+architectures. Despite the computationally intensive nature of the NAS problem,
 the task itself is trivially parallelizable across the network evaluations ---
 two separate networks can be trained simultaneously before being evaluated
-against eachother.
+against each other.
 
-The two common approaches to NAS are reinforcement learning based approaches such
+Two common approaches to NAS are reinforcement learning based approaches such
 as \cite{45826, Kyriakides:2018:NAS:3200947.3208068, pmlr-v80-pham18a}, and
 evolutionary approaches such as \cite{DBLP:journals/corr/abs-1711-00436,
   DBLP:journals/corr/MiikkulainenLMR17, DBLP:conf/icml/RealMSSSTLK17}. In our
-experiments we focus on the evolutionary approach due to its simplicity in both
-understanding and implementation.
+experiments we focus on the evolutionary approach due to its simplicity of
+concept and implementation.
 
-\subsection{Evolutionary Neural Architecture Search}
 We use a relatively simple approach to evolving neural network architectures in
 that we only construct linear networks, rather than allow an arbitrary number of
 incoming and outgoing connections for any given layer. The motivation behind
 this is two-fold: it reduces the size of search space for the neural network
 architecture and simplifies the implementation. Because the focus of this work
-is the system architecture, rather than neural architecture search, we feel the
+is the architecture for building a distributed system that performs neural architecture
+search, rather than neural architecture search, we feel the
 trade-off is reasonable.
 % 
 % \begin{figure}
@@ -209,16 +231,18 @@ spatial dimensions of the input while allowing filter size and depth to be
 chosen through evolution. ReLU activation functions are inserted between
 layers and after reductions.
 We use the heuristic of doubling the number of filters
-via a 1x1 convultional layer prior to reducing the spatial dimension by a
+via a 1x1 convolutional layer, which is similar to a learned scaling
+factor applied across all filters, prior to reducing the spatial dimension by a
 factor of two via a 2x2 max pooling layer with a stride of two.
 The intuition behind this
 technique is to control information loss across reduction layers. The spatial
 reduction results in a 75\% loss in spatial information. Increasing the
-number of filters by a factor of two increases the total information transfered
+number of filters by a factor of two increases the total information transferred
 from the layer before the reduction layer to the layer immediately following
 the reduction layer to at most 50\% instead of 25\%.
 
-Module evolution proceeds by appending layers to the module or performing
+Algorithm~\ref{alg:evo-simple} describes the evolution process.
+Module evolution proceeds by either appending layers to the module or performing
 crossover, where two networks are split at random positions and recombined
 to form a new network. The maximum number of layers in a module is fixed
 (by the user), and evolution can add either 3x3 or 5x5 2D convolutional
@@ -239,17 +263,14 @@ layers with filter depths of 16, 32, 64, or 128.
     \If{$|N_1| \neq |N_2|$}
     \State $o_1\gets N_1.\texttt{mutate()}$
     \State $o_2 \gets N_2.\texttt{mutate()}$
-    \State \textbf{return } $o_1, o_2$
+    \State \textbf{return } $[o_1, o_2]$
     \EndIf
     \State $o \gets N_1.\texttt{crossover}(N_2)$
     \State $o.\texttt{mutate()}$
-    \State \textbf{return } $o$
+    \State \textbf{return } $[o]$
   \EndProcedure
   \Procedure{Mutate}{}
-  \State \emph{// Possibly append layer}
-  \If{$\texttt{sampleUniform(0, 1)} < \texttt{append\_p}$}
   \State \texttt{self.layers.append}(\texttt{randomLayer()})
-  \EndIf
   \EndProcedure
   \end{algorithmic}
 \end{algorithm}
@@ -261,8 +282,8 @@ description language (IDL)
 to define the RPC service (that is, the API available to the caller) and some
 type of data serialization format. For example, gRPC uses Protocol Buffers (ProtoBufs)
 \cite{Varda2008} as the serialization format for data sent across the network.
-RPC offers a number of advantages for network communication. It is robust to
-node failures or network partitions (the RPC invokation simply fails). The data
+RPC offers a number of advantages over MPI for network communication. It is robust to
+node failures or network partitions (the RPC invocation simply fails). The data
 sent across the network is compactly represented, giving way to high bandwidth
 and low latency communication. And lastly, the point-to-point communication allows for
 diverse communication patterns and paradigms. RPC forms the network communication
@@ -270,8 +291,34 @@ infrastructure at Google \cite{van2017production}, Facebook \cite{Slee2007},
 as well as Hadoop
 \cite{Shvachko:2010:HDF:1913798.1914427, Lu:2013:HDH:2570457.2571128}.
 
+The fault-tolerant nature of RPC comes from its underlying mechanism of sending
+requests. Within the framework of gRPC this is handled via HTTP. This
+is important because it means connections between nodes are stateless once
+a request has been completed. It also means that lost packets on the network
+will be resent, giving reliable transmission. MPI has reliable data transmission,
+but does not allow for nodes to be removed or added during the lifetime of an
+application (or at least not without great programmer effort). Part of the
+challenge for MPI is that it relies on node rank (assigned at application
+start-up) as the address of messages and there is no clear way to add or remove
+these ranks without increasing the routing logic of the application. As an
+example, consider a single broker and worker. Suppose in the MPI application
+the broker is assigned rank 1 and the worker rank 2. If the broker and worker
+both fail and two new brokers and workers join, they may be given ranks 3 and
+4 (broker and worker, respectively) or 4 and 3. There is no easy method of
+determining \emph{a priori} which rank corresponds to which process. Under
+RPC we can simply have the broker listening at a given address and port and
+the worker listening on another address and port. If either of them fails,
+a new node is started and the network DNS maps the assigned address and port
+to the new node. This is done automatically in a system managed by Kubernetes \cite{43826}
+or Apache Mesos \cite{Hindman:2011:MPF:1972457.1972488}.
+
 Figure~\ref{fig:heartbeat} gives an example of a gRPC service
-definition for a heartbeat service. The ProtoBuf compiler uses this definition
+definition for a heartbeat service, which is very similar to the heartbeat
+service definition used in our system. Distributed systems use heartbeats
+to signal that members of the system are available. The heartbeat is a node's
+way of tell the system ``I'm still here'' and is a common
+technique in distributed systems.
+The ProtoBuf compiler uses this definition
 to generate server stubs and service clients in a number of languages (C++,
 Java, Python, Go, etc.). The receiver of the RPC call must complete the server
 stubs by implementing the defined interface. For example, in the heartbeat
@@ -304,9 +351,7 @@ system that is agnostic to the type of data flowing through its
 pipes. Figure~\ref{fig:data-agnostic} gives an example of constructing a
 Protocol Buffer message type that can be used to transport arbitrary data types
 through the system. Protocol Buffers (and similarly, Thrift messages) support
-variable length byte arrays
-\footnote{In practice these arrays are limited in size. The failure rate of the
-  RPC system typically increases with the size of the messages.} This means the
+variable length byte arrays. This means the
 user can send a serialized object stored in the \texttt{Task}'s
 \texttt{task\_obj} field without having to modify the system.  A user can switch
 between running models and tasks using Java to running models and tasks using
@@ -330,18 +375,20 @@ There is a slight catch. If information within the serialized object
 is needed to properly schedule or transport the task/result to its
 destination, this information will need to be added to the message
 definition. This requires recompiling the message types and regenerating
-the gRPC (or Thrift) stubs. This is a minor inconveninece, as incorporating
+the gRPC (or Thrift) stubs. This is a minor inconvenience, as incorporating
 this new information into the system requires modifying the system
 infrastructure.
 
-A final advantage of using gRPC or Thrift to define the RPC API of the system is
-the service definition itself acts as documentation on the flow of information
-within the system. A user can look at these definitions and see how information
-is meant to flow. Understanding the communication patterns of a system built
-with a lower-level message passing framework such as MPI or $\varnothing$MQ requires
-reading through the source code. This may not be an issue for simple MPI applications
-where a majority of the communication logic is in a main run-loop, but for larger,
-more complex projects this increases the cognitive load on the user.
+Aside from the run-time characteristics, using gRPC to define the RPC API of the
+system has the advantage that the service definition itself acts as
+documentation on the flow of information within the system. A user can look at
+these definitions and see how information is meant to flow through the
+system. Understanding the communication patterns of a system built with a
+lower-level message passing framework such as MPI or $\varnothing$MQ \cite{zmq}
+requires reading through the source code. This may not be an issue for simple
+MPI applications where a majority of the communication logic is in a main
+run-loop, but for larger, more complex projects this increases the cognitive
+load on the user.
 
 \begin{figure}
   \begin{lstlisting}
@@ -351,29 +398,33 @@ service Task {
     returns (TaskResponse) {}
 }
 service Result {
-  // Called by a worker to send a result
-  // back to the broker.
-  rpc SendResult(ResultMsg)
-    returns (ResultResponse) {}
+  // Called by a worker to return result.
+  rpc SendResult(ResultMsg) returns (ResultResponse) {}
 }
   \end{lstlisting}
   \caption{Example service definitions for tasks and results.}
   \label{fig:task-result-services}
 \end{figure}
 
-\subsection{RPC vs MPI}
+\section{RPC vs MPI}
 From a performance perspective, some prior work \cite{rpc-perf} has found RPC to
 provide lower latency and higher bandwidth for some tasks. That does not tell
 the entire story. MPI comes with built-in complex communication primitives that
 are capable of taking advantage the physical network architecture of the
 cluster. Additionally, MPI is capable of bulk broadcasts to groups of nodes
-using custom communicator definitions. These primitives save the programmer a
-lot of overhead when building HPC applications. Settings such as large,
+using custom communicator definitions. These primitives save the programmer
+time and effort when building HPC applications. Settings such as large,
 distributed matrix multiplications or iterative optimization algorithms are
-particuarly well suited for MPI's communication primitives.
+particularly well suited for MPI's communication primitives. MPI is more likely
+to have better throughput than RPC in these types of application domains,
+primarily because the collective communication primitives such as
+\texttt{MPI\_Bcast} (broadcast), \texttt{MPI\_Scatter}, \texttt{MPI\_Gather},
+\texttt{MPI\_Reduce}, and \texttt{MPI\_Allreduce} are able able to more efficiently
+handle message routing than what is possible using RPC without mirroring the logic
+and implementation (which would be an incredible undertaking).
 
-However, applications that benefit from specialized communication patterns or
-that are different processes communicating asynchronously typically better
+Applications that benefit from specialized communication patterns or
+use a service-oriented architecture are typically better
 suited for RPC-based communication. Consider, for example, an application that
 sends some amount of work to a number of worker nodes and waits for the work
 to be completed, such as a distributed deep learning workload \cite{40565}. In the
@@ -381,16 +432,21 @@ synchronous setting, the entire system will only be as fast as its slowest node
 and will cause idle resources as the faster nodes wait for the slowest node to
 finish. In the asynchronous setting, the faster nodes can continue to process
 additional work while the slower nodes work on their original tasks. MPI can
-handle this type of a setting using the asynchronous APIs \texttt{mpi\_Isend}
-and \texttt{mpi\_Irecv}; however, the MPI application logic will become increasingly
+handle this setting using the asynchronous APIs \texttt{MPI\_Isend}
+and \texttt{MPI\_Irecv}; however, the MPI application logic will become increasingly
 complex if the number and type of workers is dynamic. This is because MPI uses
-process IDs for communication, requiring the user to use message routing logic
+process IDs for communication and requires the user to use message routing logic
 based on these IDs. When the communication numbers and patterns change, this
-apporach can become difficult to modify whereas a more flexible approach such
+approach can become difficult to modify whereas a more flexible approach such
 as RPC can handle the changes with no change to application logic (e.g., simply
-start more worker processes).
+start more worker processes). In the system we propose,
+there are four classes of processes: the model, the broker, the nameserver, and
+the worker. It is conceptually simpler to think of these as four different
+services and build each of them separately using a service-oriented
+architecture, rather than a single program that determines its behavior based on
+its assigned communicator rank (as done in MPI).
 
-One short-coming of RPC is message size limitations. This can be particularly
+One short-coming of RPC is message size limitations. This can be
 troublesome in distributed machine learning settings where highly parameterized
 models such as deep neural networks are sent across the network. The solution
 is to send a representation of the model, rather than the model itself, across
@@ -398,17 +454,8 @@ the network. The advantage of this approach is reduced network bandwidth
 utilization. The disadvantage of course is the loss of trained models at the
 worker nodes. In practice, this may not be a major issue as final model
 architectures are typically trained in a specialized manner (e.g., for a large
-number of epochs). Additionally, models can be saved to a distributed filesystem
-such as HDFS.
-
-Of course, MPI does offer asynchronous communication, but it is not as flexible
-as that of RPC-based systems. In an asynchronous setting there are usually
-classes of nodes whose behavior are class-dependent. In the system we propose,
-there are four classes of processes: the model, the broker, the nameserver, and
-the worker. It is conceptually simpler to think of these as four different
-services and build each of them separately using a service-oriented
-architecture, rather than a single program that determines its behavior based on
-its assigned communicator rank (as done in MPI).
+number of epochs). Additionally, models can be saved to a distributed file system
+such as HDFS \cite{Shvachko:2010:HDF:1913798.1914427}.
 
 An interesting advantage of RPC is the ability to take advantage of a container
 orchestration system such as Kubernetes \cite{43826} to ensure a specified
@@ -420,11 +467,11 @@ between communicating nodes. While this may seem excessive for a small collectio
 of nodes, the ability to have Kubernetes manage system state within a large
 system can be quite valuable in a production system.
 
-One particularly unique aspect of the domain of neural architecture search is
+A unique aspect of the domain of neural architecture search is
 that it does not require low-latency communication. Each neural network can take
 anywhere from minutes to hours to train, which means the frequency of
 task and corresponding result messages is fairly low. One prior work
-\cite{DBLP:conf/icml/RealMSSSTLK17} even used a shared filesystem to communicate
+\cite{DBLP:conf/icml/RealMSSSTLK17} even used a shared file system to communicate
 between a model and the worker nodes. The long time interval between sending the
 task to the worker and receiving the result from the same worker means a single
 server could handle a potentially large number of connections with workers,
@@ -435,18 +482,17 @@ certainly on the order of hundreds and possibly even thousands.
 % every second, similar to that depicted in Figure~\ref{fig:heartbeat}.
 
 \section{System Architecture}
-As previously mentioned, our system consists of four different components.
-Figure~\ref{fig:sys-arch} shows an overview of the system architecture.  A model
-is a problem specific implementation that controls what is sent to the system
-for evaluation and handles the result it receives. The brokers form the data
-pipeline of the system, moving work from the models to the available workers.
-Workers form the other
-customizable part of the system because they need to know how to perform their
-assigned work.  Lastly, the nameserver maps known brokers to their network
+As previously mentioned, our system consists of four different components, as
+illustrated in Figure~\ref{fig:sys-arch}.  A model is a problem specific
+implementation that controls what is sent to the system for evaluation and
+handles the result it receives. The brokers form the data pipeline of the
+system, moving work from the models to the available workers.  Workers form the
+other customizable piece of the system because they need to know how to perform
+their assigned work.  Lastly, the nameserver maps known brokers to their network
 address -- this is useful for connecting to brokers, such as a model connecting
 to a broker, a broker connecting to a broker (for broker-broker peering), or a
 worker connecting to a broker. The following sections will detail each
-components functionality individual and within the system as a whole.
+components' functionality.
 
 
 \subsection{Model}
@@ -454,27 +500,15 @@ The model is the problem-specific, user-defined logic that determines what work
 should be performed next and how the results of previously assigned work should
 be processed. The only requirement of the model is that is uses a broker client
 stub (generated by gRPC) to push work to the system and implements the result
-service interface, depicted in Figure~\ref{fig:task-result-services}, to allow
-the broker to push results back to the model.
+service interface, described in Figure~\ref{fig:task-result-services}, to allow
+the broker to push results back to the model. Figure~\ref{fig:model-broker}
+shows the flow of data between the model and broker.
 
 The model needs to track outstanding tasks that have been sent to the broker.
 While the system is fault-tolerant for most brokers and all workers, if the
 broker the model is sending work to fails, the work the model is waiting to
-receive will be lost and the model will need to resend to a new broker. The
-simplest approach to handle this state is via a heartbeat.
-
-\begin{figure}
-  \centering
-  \includegraphics{img/broker_worker}
-  \caption{Communication pattern between a worker and broker.}
-  \label{fig:worker-broker}
-\end{figure}
-
-\subsection{Worker}
-Workers are the other user-defined and implemented portion of the system. While
-a single worker implementation can work for multiple model implementations,
-there is no general worker implementation that will work across all languages
-and models.
+receive will be lost and the model will need to resend the lost work
+to a new broker. The simplest approach to handle this state is via a heartbeat.
 
 \begin{figure}
   \begin{lstlisting}[language=python]
@@ -484,11 +518,25 @@ class BaseTask:
 
 class Worker:
   def process_task(self, task):
+    assert isinstance(task, BaseTask)
     result = task.run()
     self.broker_client.send_result(result)
+
+  def serve(self):
+    while True:
+      task = self.request_task()
+      self.process_task(task)
   \end{lstlisting}
-  \caption{Example Task API in Python.}\label{fig:python-api}
+  \caption{Example Worker Task API in Python.}\label{fig:python-api}
 \end{figure}
+
+
+\subsection{Worker}
+Workers are the other user-defined and implemented portion of the system. While
+a single worker implementation can work for multiple model implementations,
+there is no general worker implementation that will work across all languages
+and models.
+
 
 Using an API similar to that shown in Figure~\ref{fig:python-api}, one can use
 the same worker implementation for any task that inherits from the
@@ -499,20 +547,39 @@ or factoring large numbers. As long as the task implements a \texttt{run()} meth
 the worker can execute the task without a change in logic.
 
 Figure~\ref{fig:worker-broker} shows the communication pattern between the
-broker and a worker. There are two interesting aspects of this diagram: all
-communication starts at the worker and there is no heartbeat exchange between
-the worker and the broker. Both of these details are what allow the system to
-treat workers as ephemeral compute resources. This means an arbitrary number of
-workers can join and leave the system without the system knowing or caring. The
-downside to this approach is it requires a little extra bookkeeping at the
-broker. The broker needs to track what tasks are outstanding and decide if they
-should be moved back in to the work queue.
+broker and a worker. The most notable aspect of this pattern is that requests only
+flow from the worker to the broker; the broker never sends a request to the
+worker. In fact, the broker is unaware of any workers within the system except
+for those to whom it has sent a task. This is what allows the system to add
+as many workers as needed. Losing a worker means the broker must add the lost
+task back into the task queue. The addition of a worker has no impact on the
+system until that worker requests a task, at which point only the broker
+knows of the worker's existance and only while the worker is working on the
+given task.
+
+% There are two interesting aspects of this diagram: all
+% communication starts at the worker and there is no heartbeat exchange between
+% the worker and the broker. Both of these details are what allow the system to
+% treat workers as ephemeral compute resources. The broker-worker
+% communication is one-way from the worker to the broker. Brokers can track
+% lost workers by monitoring a heartbeat message from worker to broker. This
+% can be viewed as the worker leasing a task from the broker. The worker needs
+% to renew this lease (via a heartbeat) while it is working on completing its
+% task.
+
+\begin{figure}
+  \centering
+  \includegraphics{img/broker_worker}
+  \caption{Communication pattern between a worker and broker.}
+  \label{fig:worker-broker}
+\end{figure}
 
 \subsection{Broker}
 Brokers form the data pipeline of our system. Work is sent from a model to a
 broker, which in turn sends the work to a free worker or to another broker via
 peering and returns the result to
-the original model. At its core, a broker is essentially just a process with a
+the original model. This data flow is shown in Figures~\ref{fig:worker-broker},
+\ref{fig:broker-model}, and~\ref{fig:broker-broker}. At its core, a broker is essentially just a process with a
 owned task queue, a helper task queue (tasks received from other brokers
 via peering), a
 processing queue, and a results queue. Work in the owned task queue is work that
@@ -529,7 +596,7 @@ sends the result to its owner, which may be a model or another broker.
 
 \begin{figure}
   \centering
-  \includegraphics{img/model_broker}
+  \includegraphics[width=.6\columnwidth]{img/model_broker}
   \caption{Communication pattern between the broker and
     model.}\label{fig:broker-model}
 \end{figure}
@@ -571,25 +638,25 @@ running, which is not scalable for hundreds or thousands of workers.
 % 
 \begin{figure}
   \centering
-  \includegraphics{img/broker_broker}
+  \includegraphics[width=.6\columnwidth]{img/broker_broker}
   \caption{Communication pattern for broker-broker communication.}
   \label{fig:broker-broker}
 \end{figure}
 
-\section{Discussion}
-The goal of our experiments is to explore the scalability and robustness
+\section{Experiments}
+Our experiments explore the scalability and robustness
 of a system built using RPCs for communication to perform a long-running,
 computationally intensive task. We use the CIFAR-10 \cite{cifar10-data}
-dataset because it is small enough to allow us to train reasonably
+data set because it is small enough to allow us to train reasonably
 performing neural networks in a short amount of time when compared with
-datasets such as CIFAR-100 \cite{cifar100-data} or ImageNet \cite{imagenet_cvpr09}.
+data sets such as CIFAR-100 \cite{cifar100-data} or ImageNet \cite{imagenet_cvpr09}.
 All experiments were run on Amazon's
 AWS EC2 platform using \texttt{p2.8xlarge} instances consisting of 8
 Nvidia K80 GPUs. The first run on a single GPU sets the baseline
 number of models evaluated per generation. The successive experiments
 analyze how this value changes with the addition of worker nodes as well
 as how the system reacts to losing worker nodes.
-\subsection{Scalability}
+\subsection{Scalability}\label{sec:scalability}
 Figure~\ref{fig:scale} shows the scaling results, which are computed as the
 geometric mean across five generations of neural network evolution. We chose to
 stop after only five generations primarily due to resource limits.  The relative
@@ -598,20 +665,20 @@ increase in the rate of idle workers and worker failures. More workers means the
 workers are able to evaluate the candidate networks (composing a generation) in
 a shorter total amount of time; however, not all networks take the same amount
 of time to evaluate, leading some workers to remain idle while waiting for other
-workers to finish.
+workers to finish (at the end of a generation when there are no outstanding
+network architectures to evaluate).
 
-The other issue impacting the scalability of the system is worker
-failures. With larger worker counts the system encountered larger models
-sooner and some of these models exhausted the GPU's memory. We also
-suspect there was a GPU memory leak in our PyTorch code but were unable
-to find the root cause. We manually restarted failed workers; however,
-we were not constantly monitoring worker status and as a result the higher
-worker runs were sometimes running several workers down, reducing the overall
-network evaluation throughput of the system. This is a great
-example of a scenario where an orchestration system such as Kubernetes,
-Apache Mesos, or similar offerings from AWS, GCP, and Microsoft Azure.
-The ability to automatically restart failed workers would have improved
-the overall scalability results.
+The other issue impacting the scalability of the system is worker failures. With
+larger worker counts the system encountered larger models sooner and some of
+these models exhausted the GPU's memory. We also suspect there was a GPU memory
+leak in our PyTorch code but were unable to find the root cause. We manually
+restarted failed workers; however, we were not constantly monitoring worker
+status and as a result the higher worker runs were sometimes running several
+workers down, reducing the overall network evaluation throughput of the
+system. This is a great example of a scenario where an orchestration system such
+as Kubernetes, Apache Mesos, or similar offerings from Amazon's AWS, Google's
+GCP, and Microsoft Azure.  The ability to automatically restart failed workers
+would have improved the overall scalability results.
 
 \begin{figure}
   \centering
@@ -642,28 +709,39 @@ the overall scalability results.
 %   \end{tabular}
 % \end{table}
 \subsection{Node Failures}
-Figure~\ref{fig:failures} raises another interesting issue with respsect
-to keep workers busy evaluating network architectures. Handling a failed
-worker is relatively simple: the model tracks how many networks were
-sent for evaluation and pops the same number of results off the result
-queue, which blocks for a specified timeout. We new from experience that the
-average network took about two minutes to train, so we set the timeout to
-five minutes times the number of models sent for evaluation. This works
-but is very inefficient for the workers who are sitting idle when
-they could have been evaluating two additional networks each. More importantly,
-it holds up the system while waiting for a (failed) worker to finish.
-Idle servers
-are expensive, especially when running specialized hardware on services
-such as AWS or GCP.
+The number of failures in Figure~\ref{fig:failures} might be somewhat surprising.
+The 8 and 16 node runs experienced around a 100\% failure rate, while the one
+and two node runs had no failures---since we ran both for the same number of
+generations we would expect the size of the found networks to be the same with
+the main difference in the runs being the overall run-time. Part of this is
+luck in that the smaller GPU count runs simply didn't find some of the larger
+parameter network architectures in the later generations.
+The main difference is the larger GPU count runs allowed
+the system to try a larger number of large network architectures before we
+stopped the system. At the single and two worker runs we simply stopped the
+system before the workers failed (workers typically failed at the later generations
+when the architectures were larger). As mentioned in Section~\ref{sec:scalability},
+we were not constantly monitoring runs and therefore would not immediately notice
+a worker failure. Using a system such as Kubernetes to maintain a specified
+system state such as ``maintain eight workers'' would have been useful at our
+scale, but is essential at larger scales.
 
-One possible solution is to switch from a generational approach to a steady-state
-approach and use tournament selection, where survival is determined by comparing
+The node failures cause another issue, which is the time it takes the system to
+realize there was a failure. For example, if a heartbeat needs to occur every two
+minutes, that is two minutes until the system realizes it needs to resend a task.
+One solution to reduce this latency is to switch from generational selection (selecting survivors
+of one generation to the next at the same time) to a steady-state selection
+approach and use tournament selection (selecting between pairs of individuals as
+they are evaluated), where survival is determined by comparing
 two individuals and keeping the fitter of the two. The advantage to this approach
 is the number of outstanding network evaluations does not impact the ability of
-the model to generate new candidates.
+the model to generate new candidates. As network architectures are evaluated
+new architectures are evolved in a steady-state of evolved individuals. This is
+an interesting avenue for future work.
 
 \subsection{Found Architectures}
-Figure~\ref{fig:best} shows the best found architecture after five generations.
+Figure~\ref{fig:best} shows the best found architecture after five generations,
+which had a validation accuracy of 76.8\%.
 Somewhat unsurprisingly, there were many other architectures that performed
 similarly to this architecture. One characteristic common in all of the high
 performing architectures is a high number of filters in the first layer of
@@ -672,13 +750,15 @@ performance. Some networks with a very large filter depth in the first layer
 performed poorly, possibly due to over-fitting, while others with an average
 filter depth but small filter spatial dimensions also performed poorly.
 
-These results illustrate the challenge of designing effective neural
+These results illustrate the difficulty of designing effective neural
 networks---seemingly similar networks may have dramatically different
-performances. Consider Figure~\ref{fig:good-bad}, which shows to neural
+performances. Consider Figure~\ref{fig:good-bad}, which shows two neural
 networks with similar architectures. The network on the left had a validation
 accuracy of 72.6\% (that is, it got about three out of every four classifications
 correct on previously unseen data) while the network on the right had a
-validation accuracy of 10.1\%.
+validation accuracy of 10.1\%. This also illustrates the importance of neural
+architecture search as seemingly similar architectures can have wildly different
+results.
 
 \begin{figure}
   \centering
@@ -702,18 +782,18 @@ purpose message broker that supports the same functionality demonstrated
 in this paper, but messages are delivered based on a routing key, rather than
 the first available worker. Similar to the RPC message definitions used in
 this work, RabbitMQ uses a collection of bytes as the message body. For
-streaming data, Apache Kafka \cite{kafka} is a good choice. Kafka is requires a
+streaming data, Apache Kafka \cite{kafka} is a good choice. Kafka requires a
 ZooKeeper \cite{Hunt:2010:ZWC:1855840.1855851} instance and is generally
-more complex to setup and run.
+more complex to set up and run.
 Both RabbitMQ and Kafka are robust to failures. At the other end of the
-spectrum, $\varnothing$MQ is a low-level messaging library that can be used
+spectrum, $\varnothing$MQ \cite{zmq} is a low-level messaging library that can be used
 to build a performant, brokered messaging system similar to the one described
 in this paper. Unfortunately, $\varnothing$MQ is not suitable for use in a
 domain where implementation language may change frequently due to its lack of
 an IDL. Lacking an IDL means the client and server code will need to be rewritten
 in each language in addition to requiring new users to read the source code to
 understand the pattern of communication rather than simply reading the IDL
-specification. Of course, a good system architecture and design document allevaites
+specification. Of course, a good system architecture and design document alleviates
 the need to read the source code, regardless of the chosen language or technology.
 
 A natural question is why we would bother building our
@@ -733,43 +813,43 @@ None of these handle node failure by default, though we note that Tensorflow's
 distributed training framework does support running on Kubernetes.
 
 Much of the previous work on neural architecture search uses some form of a
-distributed architecture consisting of a model, (possible) a coordinator, and workers. The
+distributed architecture consisting of a model, (possibly) a coordinator, and workers. The
 coordinator handles assignment of work to the workers. While many of these works
 don't detail the specifics of their system, we reviewed some of the available
 code on Github. A popular paradigm is using Python's \texttt{multiprocessing}
 module to run multiple models on a multi-GPU machine. These GPUs are fed from a
 thread-safe queue. PyTorch offers a data parallel module that handles this
 functionality  but currently struggles to fully utilize all available GPUs in
-settings with 8+ GPUs, per the PyTorch documentation.Tensorflow provides similar
+settings with 8+ GPUs, per the PyTorch documentation. Tensorflow provides similar
 functionality for distributed training but instead relies on gRPC.
 
 A number of prior works use MPI in conjunction with deep learning libraries
 taking a data parallel approach \cite{Awan:2016:ELM:2966884.2966912,
-  Awan:2017:SCM:3018743.3018769, pmlr-v28-coates13, DBLP:journals/corr/VishnuSD16}.
-This is familiar to other work that takes
-advantage of multithreading (such as Python's \texttt{multiprocessing} module)
+  Awan:2017:SCM:3018743.3018769, pmlr-v28-coates13,
+  DBLP:journals/corr/VishnuSD16}.  This is familiar to other work that takes
+advantage of multi-threading (such as Python's \texttt{multiprocessing} module)
 but utilizes much larger systems. Awan et. al.
-\cite{Awan:2018:OBD:3236367.3236381} build a model parallel system using
-MPI, relying on MPI's efficient communication primitives to avoid excessive
-blocking when cross-node dependencies. Unfortunately, all of these works
-require MPI on the system they are running, which is not an issue if the application
-is running on a University research
-cluster or at a national lab, but requires the user to setup the underlying MPI
-installation if run on a provisioned AWS, GCP, or Azure cluster.
+\cite{Awan:2018:OBD:3236367.3236381} build a model parallel system using MPI,
+relying on MPI's efficient communication primitives to avoid excessive blocking
+when cross-node dependencies. Unfortunately, all of these works require MPI to
+be installed on the cluster in which they are running, which is not an issue if
+the application is running on a University research cluster or at a national
+lab, but requires the user to set up the underlying MPI installation if run on a
+provisioned AWS, GCP, or Azure cluster.
 
-Others \cite{journals/corr/MoritzNSJ15, journals/corr/KimPJY16} use Spark
+Other work \cite{journals/corr/MoritzNSJ15, journals/corr/KimPJY16} uses Spark
 \cite{Zaharia:2016:ASU:3013530.2934664} to
 train deep learning neural networks. Spark \emph{can} handle the addition or loss
-of compute nodes, is robust to node failures (via HDFS) but struggles with
+of compute nodes and is robust to node failures (via HDFS), but struggles with
 iterative algorithms. Both of these works use Spark to distribute Caffe
 \cite{Jia:2014:CCA:2647868.2654889} models to GPU compute nodes
 and implement asynchronous SGD. The main issue with Spark in this context
 is that either the user must create a wrapper for the model in Scala or
 use PySpark. Using PySpark is relatively simple, as long as your model is
-written in Python. If your model is written in something other than Python
-such as C++, then you must decide if its better to create a wrapper in Scala
+written in Python. If your model is written in something other than Python,
+such as C++, then you must decide between creating a wrapper in Scala
 (if you know Scala) or a Swig interface and call it from Python. Both of
-these options seem more complex than implementing a server stub to send
+these options are more complex than implementing a server stub to send
 models and using a pre-generated client to request models to train as well
 as report the results.
 
@@ -779,6 +859,18 @@ primarily due to the shuffle-stage of MapReduce (since Spark is built on
 top of Hadoop).
 
 \section{Future Work}
+It can be tempting to think of system design as an all-or-nothing
+decision---either build a system with MPI or build a system using RPCs, but
+this is not the case. Consider a workload
+whose core unit of work is amenable to an MPI-based system but the individual
+units of work are independent of each other with the exception of possible
+boundary interactions. A combination of RPC and MPI communication might be
+ideal, using MPI within a single cluster to complete individual units of work
+and RPC to communicate between clusters. In this way, individual clusters become
+the workers of the system and can join and leave at will, while the broker
+backbone manages sending tasks to the individual clusters and returning their
+results to the model.
+
 One unexplored avenue of potential future work is reusing the discarded
 neural network architectures in an ensemble. Much of the NAS literature
 finishes the search with the best found architecture---it would be interesting
@@ -786,7 +878,7 @@ to explore a comparison between the best architecture and an ensemble of
 architectures taking into account communication overhead and voting required
 by the ensemble.
 
-Another interesting avenue of work would be a more in-depth comparison of
+Another interesting avenue of work is  a more in-depth comparison of
 building systems with RPC versus other message passing frameworks like
 $\varnothing$MQ, RabbitMQ, and Kafka. Specifically, what are the settings
 in which the alternatives are particularly well suited and what are the
@@ -795,27 +887,25 @@ differences in message latency, bandwidth, and usability? These are all
 interesting considerations that may be known in industry through experience
 but, as far as we know, have not been formally studied.
 
-Laslty, further investigation into how steady-state evolution impacts
-system performance both in terms of throughput and quality of evolved
-individuals in the domain of neural architecture search is meritted.
+A final worthwhile investigation is on the impact of steady-state evolution
+on system performance both in terms of throughput and quality of evolved
+individuals within the domain of neural architecture search.
 Some prior work as been done comparing generational
 and steady-state evolutionary algorithms in a parallel setting, such as
 \cite{10.1007/3-540-45356-3_40, 10.1007/978-3-540-30217-9_26,
   Zavoianu:2015:PCG:2827032.2827154}. A steady-state approach would allow
-a truly asynchronous system with minimal idle nodes.
+a truly asynchronous system with minimal idle nodes and increased
+scalability.
 
 \section{Conclusion}
-It can be tempting to think of system design as an all-or-nothing
-decision---either build a system with MPI or build a system using RPCs. An
-interesting avenue for future work is combining the two. Consider a workload
-whose core unit of work is amenable to an MPI-based system but the individual
-units of work are independent of eachother with the exception of possible
-boundary interactions. A combination of RPC and MPI communication might be
-ideal---using MPI within a single cluster to complete individual units of work
-and RPC to communicate between clusters. In this way, individual clusters become
-the workers of the system and can join and leave at will, while the broker
-backbone manages sending tasks to the individual clusters and returning their
-results to the model.
+We have introduced a scalable and fault-tolerant system architecture for
+neural architecture search. Although the focus of this paper has been
+neural architecture search, this system design is applicable in other domains
+that benefit from elastic compute and fault tolerance, such as general
+deep learning research. Despite MPI's short-comings in this specific domain,
+MPI remains the de-facto choice for most HPC applications. More importantly,
+as mentioned in the preceding section, the choice between RPC or MPI is never
+an all-or-nothing choice.
 \balance
 \bibliographystyle{abbrv}
 \bibliography{/home/jhaj/research/bibliographies/bdl,
