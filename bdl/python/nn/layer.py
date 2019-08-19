@@ -8,6 +8,7 @@ class LayerType(Enum):
     CONV_5x1_1x5 = "5115"
     CONV_7x7 = "77"
     CONV_1x1 = "11"
+    DROPOUT = "dropout"
     MAX_POOL = "max_pool"
     AVG_POOL = "avg_pool"
 
@@ -29,6 +30,8 @@ class LayerType(Enum):
             return LayerType.MAX_POOL
         elif s.startswith("avg_pool"):
             return LayerType.AVG_POOL
+        elif s.startswith("dropout"):
+            return LayerType.DROPOUT
         else:
             raise ValueError("Unrecognized layer string: %s" % s)
 
