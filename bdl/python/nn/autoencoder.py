@@ -19,33 +19,32 @@ class WideModule(nn.Module):
     """
     A wide module is a single module used to build an autoencoder
     """
+    pass
 
 class WideAE(nn.Module):
 
-    # A unit is a repeated number of modules followed by a reduction layer.
-    _n_units = 2
 
-    # Used to track whether the model has been built. A model must be built
-    # before being used.
-    _has_been_built = False
-
-    _trainable_layers = []
-
-    _layers = []
-
-    _out_channel = 0
-
-    # Max width of a module
-    _max_width = 4
-
-    # Max depth of a module (max length of a channel)
-    _max_depth = 4
 
     def __init__(self, layers, tensor_shape, n_modules):
         """Intialize trainable autoencoder with 2D layer module.
 
         """
         super(Autoencoder, self).__init__()
+        # A unit is a repeated number of modules followed by a reduction layer.
+        self._n_units = 2
+
+        # Used to track whether the model has been built. A model must be built
+        # before being used.
+        self._has_been_built = False
+        self._trainable_layers = []
+        self._layers = []
+        self._out_channel = 0
+
+        # Max width of a module
+        self._max_width = 4
+
+        # Max depth of a module (max length of a channel)
+        self._max_depth = 4
         self._tensor_shape = tensor_shape
         self._n_modules = n_modules
         self._layer_descriptions = [layers_from_string(l) for l in layers]
@@ -137,13 +136,16 @@ class WideAE(nn.Module):
 
 class SequentialAE(nn.Module):
 
-    _encoder_layers = nn.ModuleList()
-    _decoder_layers = nn.ModuleList()
 
-    _n_reductions = 1
 
     def __init__(self, layers, tensor_shape, n_modules,
                  binarize=False, fuzz=False, n_reductions=None):
+        super(SequentialAE, self).__init__()
+        self._encoder_layers = nn.ModuleList()
+        self._decoder_layers = nn.ModuleList()
+        self._encoder = None
+        self._decoder = None
+        self._n_reductions = 1
         self._layers = layers_from_string(layers)
         self._tensor_shape = tensor_shape
         self._n_modules = n_modules
@@ -155,7 +157,13 @@ class SequentialAE(nn.Module):
                               "total loss of information."))
             self._n_reductions = n_reductions
 
-    def build_autoencoder(self):
+        print("Building autoencoder")
+        self._build_autoencoder()
+        print("Autencoder built.\n{}\n{}".format(self._encoder, self._decoder))
+        
+            
+
+    def _build_autoencoder(self):
         # Build encoder
         n_chans = self._tensor_shape[0]
         for i in range(self._n_reductions):
@@ -175,14 +183,16 @@ class SequentialAE(nn.Module):
                 (layers, n_chans) = self._build_module(n_chans)
                 self._decoder_layers.extend(layers)
             self._decoder_layers.extend([
-                    nn.ConvTranspose2d(n_chans, n_chans, 2, stride=2, padding=1),
+                    nn.ConvTranspose2d(n_chans, n_chans, 4, stride=2, padding=1),
                     nn.ReLU(True)
             ])
 
         self._decoder_layers.extend([
-                nn.ConvTranspose2d(n_chans, 1, 1),
+                nn.Conv2d(n_chans, self._tensor_shape[0], 1),
                 nn.Tanh()
         ])
+        self._encoder = nn.Sequential(*self._encoder_layers)
+        self._decoder = nn.Sequential(*self._decoder_layers)
 
     def forward(self, x):
         if self._should_fuzz:
@@ -210,21 +220,21 @@ class SequentialAE(nn.Module):
                 layers.append(nn.Conv2d(prior_chans,
                                         l.filter_size,
                                         3,
-                                        padding=2))
+                                        padding=1))
                 layers.append(nn.ReLU(True))
                 prior_chans = l.filter_size
             elif l.layer_type == LayerType.CONV_5x5:
                 layers.append(nn.Conv2d(prior_chans,
                                         l.filter_size,
                                         5,
-                                        padding=4))
+                                        padding=2))
                 layers.append(nn.ReLU(True))
                 prior_chans = l.filter_size
             elif l.layer_type == LayerType.CONV_7x7:
                 layers.append(nn.Conv2d(prior_chans,
                                         l.filter_size,
                                         7,
-                                        padding=6))
+                                        padding=3))
                 layers.append(nn.ReLU(True))
                 prior_chans = l.filter_size
             elif l.layer_type == LayerType.DROPOUT:
@@ -249,17 +259,16 @@ class SequentialAEEvoBuilder(object):
         return SequentialAEEvo(self._max_length)
 
 class SequentialAEEvo(object):
-    _max_length = 5
 
-    _available_layers = [LayerType.CONV_3x3, LayerType.CONV_1x1,
-                         LayerType.CONV_5x5, LayerType.CONV_7x7,
-                         LayerType.DROPOUT]
-
-    _available_sizes = [8, 16, 32, 64]
-
-    _layers = []
 
     def __init__(self, max_len=None):
+        self._available_layers = [LayerType.CONV_3x3, LayerType.CONV_1x1,
+                                  LayerType.CONV_5x5, LayerType.CONV_7x7,
+                                  LayerType.DROPOUT]
+
+        self._available_sizes = [8, 16, 32, 64]
+
+        self._layers = []        
         if max_len is not None:
             assert isinstance(max_len, int)
             self._max_length = max_len
