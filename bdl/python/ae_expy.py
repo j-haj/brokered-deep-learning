@@ -10,8 +10,8 @@ def main():
         print(s)
 
     task = AENetworkTask("test", s.to_string(), Dataset.FASHION_MNIST,
-                         binarize=False,
-                         n_modules=2, n_reductions=2)
+                         binarize=False, fuzz=True,
+                         n_modules=2, n_reductions=1)
     r = task.run()
     print("Done with loss: {}".format(1/r.accuracy()))
 

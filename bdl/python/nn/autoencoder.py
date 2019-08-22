@@ -145,6 +145,7 @@ class SequentialAE(nn.Module):
         self._decoder_layers = nn.ModuleList()
         self._encoder = None
         self._decoder = None
+        self._noise = None
         self._n_reductions = 1
         self._layers = layers_from_string(layers)
         self._tensor_shape = tensor_shape
@@ -195,8 +196,6 @@ class SequentialAE(nn.Module):
         self._decoder = nn.Sequential(*self._decoder_layers)
 
     def forward(self, x):
-        if self._should_fuzz:
-            logging.error("IMPLEMENT")
         x = self._encoder(x)
         if self._should_binarize:
             x = x.round()

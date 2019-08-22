@@ -48,6 +48,9 @@ class ResultServicer(ResultServiceServicer):
         except:
             r = None
         return r
+
+    def size(self):
+        return self.result_q.qsize()
     
     def SendResult(self, request, context):
         logging.debug("Received result with task_id: {}".format(request.task_id))

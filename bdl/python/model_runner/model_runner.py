@@ -127,7 +127,7 @@ class ModelRunner():
             logging.debug("Waiting for results.")
             self._process_results(generation, sent_models, 5*60)
 
-            # Update population using tournament selection
+            # Update population
             pop = set(self.population.offspring)
             pop.difference_update(should_discard)
             pop = list(pop)

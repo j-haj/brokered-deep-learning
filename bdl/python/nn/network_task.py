@@ -42,7 +42,7 @@ class AENetworkTask(object):
 
     def __init__(self, img_path, layers, dataset, n_epochs=10,
                  log_interval=10, n_modules=2, n_reductions=1,
-                 binarize=False):
+                 binarize=False, fuzz=False):
         if dataset == Dataset.CIFAR10:
             d = "cifar10"
         elif dataset == Dataset.MNIST:
@@ -63,6 +63,7 @@ class AENetworkTask(object):
         self._kwargs = {"num_workers": 1, "pin_memory": True} if self._cuda else {}
         self._log_interval = 10
         self._binarize = binarize
+        self._fuzz = fuzz
 
         # Make image directory
         p = "./img/{}".format(self._img_path)
@@ -78,7 +79,9 @@ class AENetworkTask(object):
     def build_model(self):
         self.model = SequentialAE(self._layers, self._tensor_shape,
                                   n_modules=self._n_modules,
-                                  n_reductions=self._n_reductions)
+                                  n_reductions=self._n_reductions,
+                                  binarize=self._binarize,
+                                  fuzz=self._fuzz)
         logging.debug("Model {} as {:.1f}M parameters".format(
             self._layers,
             sum(p.numel() for p in self.model.parameters() if p.requires_grad)/1e6))
@@ -95,9 +98,14 @@ class AENetworkTask(object):
         self.model.train()
         
         for batch_idx, (img, _) in enumerate(train_loader):
-            img = img.to(self._device)
 
-            output = self.model(img)
+            img = img.to(self._device)
+            noise = torch.zeros_like(img)
+            if self._fuzz:
+                noise = torch.randn_like(img) / 3
+            noised_img = img + noise
+
+            output = self.model(noised_img)
             loss = F.mse_loss(output, img)
 
             optimizer.zero_grad()
@@ -111,13 +119,20 @@ class AENetworkTask(object):
                     100. * batch_idx / len(train_loader), loss))
 
         if epoch % 1 == 0:
-            pic_in = self.to_img(img.cpu().data)
+            pic_in = self.to_img(noised_img.cpu().data)
             pic_out = self.to_img(output.cpu().data)
+            t = ""
+
+            if self._binarize:
+                t = "_b"
+            elif self._fuzz:
+                t = "_f"
+                
             dc_img_path = "./img/{}/dc_img{}_{}.png".format(self._img_path,
-                                                            "_b" if self._binarize else "",
+                                                            t,
                                                             epoch)
             en_img_path = "./img/{}/en_img{}_{}.png".format(self._img_path,
-                                                            "_b" if self._binarize else "",
+                                                            t,
                                                             epoch)
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
