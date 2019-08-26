@@ -34,11 +34,11 @@ var (
 		"Address of the nameserver.")
 	debug             = flag.Bool("debug", false, "Enable debug logging.")
 	logFile           = flag.String("log_file", "", "Path to file used for logging.")
-	timeout           = flag.Int64("rpc_timeout", 1, "Timeout in seconds used for RPCs.")
+	timeout           = flag.Int64("rpc_timeout", 5, "Timeout in seconds used for RPCs.")
 	connectionTimeout = flag.Float64("heartbeat_frequency", 100.0,
 		"Time to wait in between heartbeats in seconds.")
 	location              = flag.String("location", "unknown", "Location of broker.")
-	nAttemptedConnections = flag.Int("n_attempted_connections", 1,
+	nAttemptedConnections = flag.Int("n_attempted_connections", 0,
 		"The number of brokers this broker will attempt to connect to.")
 )
 
