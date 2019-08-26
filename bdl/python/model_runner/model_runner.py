@@ -8,7 +8,7 @@ import numpy as np
 from broker_client.broker_client import BrokerClient
 from nn.classification import SimpleEvo, SimpleNN
 from nn.genotype import Population
-from nn.network_task import NetworkTask
+from nn.network_task import AENetworkTask, NetworkTask
 from nn.data import Dataset
 
 from task_service.task_service_pb2 import Task
@@ -25,7 +25,7 @@ class ModelRunner():
 
     def __init__(self, model_address, broker_client, dataset,
                  result_servicer, population, max_generations=100,
-                 n_modules=5, n_epochs=10, result_path="model_results.csv"):
+                 n_modules=2, n_epochs=10, n_reductions=1, result_path="model_results.csv"):
         self.dataset = dataset
         self.result_path = result_path
         self.n_epochs=n_epochs
@@ -39,6 +39,7 @@ class ModelRunner():
         self.counter = 0
         self.accuracies = []
         self.start = 0.0
+        self.n_reductions = n_reductions
 
     def _next_task_id(self):
         tid = "{}#{}".format(self.model_address, self.counter)
@@ -106,8 +107,14 @@ class ModelRunner():
                     should_discard.add(g)
                     continue
                 seen.add(str(g.model()))
-                m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=self.n_epochs,
-                                n_modules=self.n_modules)
+                #m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=self.n_epochs,
+                #                n_modules=self.n_modules)
+                m = AENetworkTask(img_path="test1",
+                                  layers=g.model().to_string(),
+                                  dataset=self.dataset,
+                                  n_epochs=self.n_epochs,
+                                  n_modules=self.n_modules,
+                                  n_reductions=self.n_reductions)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,

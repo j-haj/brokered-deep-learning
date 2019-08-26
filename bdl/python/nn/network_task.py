@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision.utils import save_image
 
-from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, Dataset
+from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, svhn_loaders, Dataset
 from nn.classification import SimpleNN
 from nn.autoencoder import SequentialAE
 from nn.layer import LayerType, layers_from_string
@@ -17,7 +17,8 @@ from result.result import NetworkResult
 
 _TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
                  Dataset.FASHION_MNIST: (1, 28, 28),
-                 Dataset.CIFAR10: (3, 32, 32)}
+                 Dataset.CIFAR10: (3, 32, 32),
+                 Dataset.SVHN: (3, 32, 32)}
 def get_data(dataset, batch_size, **kwargs):
     if dataset == Dataset.MNIST:
         train_loader, val_loader, _ = mnist_loaders(batch_size,
@@ -28,6 +29,9 @@ def get_data(dataset, batch_size, **kwargs):
     elif dataset == Dataset.CIFAR10:
         train_loader, val_loader, _ = cifar10_loaders(batch_size,
                                                      **kwargs)
+    elif dataset == Dataset.SVHN:
+        train_loader, val_loader, _ = svhn_loaders(batch_size,
+                                                   **kwargs)
     else:
         raise ValueError("unknown dataset: {}".format(self.dataset.value))
     return train_loader, val_loader
@@ -113,11 +117,12 @@ class AENetworkTask(object):
             optimizer.step()
 
             # Log training progress
-            if epoch % self._log_interval == 0:
+            if (batch_idx+1) % (self._log_interval*len(img)) == 0:
                 logging.debug("Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     epoch, batch_idx * len(img), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss))
 
+        logging.debug("Saving images.")
         if epoch % 1 == 0:
             pic_in = self.to_img(noised_img.cpu().data)
             pic_out = self.to_img(output.cpu().data)
@@ -136,6 +141,7 @@ class AENetworkTask(object):
                                                             epoch)
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
+        logging.debug("Done saving images.")
     
     def run(self, cuda_device_id=None):
         if cuda_device_id is not None and self._cuda:
@@ -181,8 +187,37 @@ class AENetworkTask(object):
         with torch.no_grad():
             for (img, _) in val_loader:
                 img = img.to(self._device)
-                output = self.model(img)
+                img = img.to(self._device)
+                noise = torch.zeros_like(img)
+                if self._fuzz:
+                    noise = torch.randn_like(img) / 3
+                noised_img = img + noise                
+                output = self.model(noised_img)
                 loss += F.mse_loss(output, img)
+
+            pic_in = self.to_img(img.cpu().data)
+            pic_out = self.to_img(output.cpu().data)
+            t = ""
+
+            if self._binarize:
+                t = "_b"
+            elif self._fuzz:
+                t = "_f"
+                
+            dc_img_path = "./img/{}/dc_img{}_{}.png".format(self._img_path,
+                                                            t,
+                                                            self._n_epochs)
+            en_img_path = "./img/{}/en_img{}_{}.png".format(self._img_path,
+                                                            t,
+                                                            self._n_epochs)
+
+            if self._fuzz:
+                fuzz_path = "./img/{}/fuzzed_img{}_{}.png".format(self._img_path,
+                                                                  t,
+                                                                  self._n_epochs)
+                save_image(self.to_img(noised_img.cpu().data), fuzz_path)
+            save_image(pic_in, en_img_path)
+            save_image(pic_out, dc_img_path)
 
         return 1.0/(loss + 1e-9)
     

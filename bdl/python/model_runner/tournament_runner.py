@@ -77,7 +77,8 @@ class TournamentRunner():
                 # Remove tid from dictionary
                 out = [generation, time.time() - self.start, g.fitness(), g.model()]
                 self._accuracies.append(out)
-                self.r_result_tracker.pop(tid, None)
+                self._result_tracker.pop(tid, None)
+                self._population.add(g)
 
     def save_result(self):
         with open(self._result_path, "a") as f:
@@ -98,7 +99,9 @@ class TournamentRunner():
 
             sent_models = 0
 
-            for g in self.population:
+            # Iterate over population
+            while not self._population.empty():
+                g = self._population.pop()
                 if g.is_evaluated() and str(g.model()) not in seen:
                     self._accuracies.append([generation, time.time() - self._start,
                                              g.fitness(), g.model()])

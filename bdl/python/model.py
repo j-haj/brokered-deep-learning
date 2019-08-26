@@ -27,7 +27,9 @@ from result.result import NetworkResult
 
 _DATASETS = {"fashion_mnist": Dataset.FASHION_MNIST,
              "mnist": Dataset.MNIST,
-             "cifar10": Dataset.CIFAR10}
+             "cifar10": Dataset.CIFAR10,
+             "cars": Dataset.CARS,
+             "svhn": Dataset.SVHN}
 
 class Result():
     def __init__(self, task_id, result_obj):
@@ -121,7 +123,7 @@ def get_args():
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--dataset", default="fashion_mnist",
                         help=("Dataset to use for training. Must be one of "
-                              "fashion_mnist, mnist, or cifar10."))
+                              "fashion_mnist, mnist, svhn, cars, or cifar10."))
     parser.add_argument("--population_size", default=10, type=int,
                         help="Size of population.")
     parser.add_argument("--n_modules", default=3, type=int,
