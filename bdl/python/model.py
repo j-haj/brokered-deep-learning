@@ -94,12 +94,6 @@ class ModelServer():
                                         result_path=result_path)
 
 
-    def generate_task(self):
-        t = TaskBuilder.build_task()
-        tid = "{}#{}".format(self.model_address, self.task_count)
-        self.task_count += 1
-        return task_service_pb2.Task(task_id=tid, source=self.model_address,
-                                     task_obj=pickle.dumps(t))
 
     def serve(self):
         self.server.start()
