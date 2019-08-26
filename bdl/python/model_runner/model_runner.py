@@ -79,13 +79,13 @@ class ModelRunner():
         with open(self.result_path, "a") as f:
             for r in self.accuracies:
                 f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
+            f.write("== generation\n")
         self.results = []
 
     def run(self):
         self.start = time.time()
         seen = set()
         for generation in range(self.max_generations):
-            should_discard = set()
             logging.debug("Beginning generation {}".format(generation+1))
             # Generate offspring
             self.population.generate_offspring()
@@ -104,7 +104,6 @@ class ModelRunner():
                     continue
                 elif str(g.model()) in seen:
                     g.set_fitness(-1)
-                    should_discard.add(g)
                     continue
                 seen.add(str(g.model()))
                 #m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=self.n_epochs,
@@ -136,7 +135,6 @@ class ModelRunner():
 
             # Update population
             pop = set(self.population.offspring)
-            pop.difference_update(should_discard)
             pop = list(pop)
             pop.sort(key=lambda x: x.fitness(), reverse=True)
             self.population.update_population(pop[:self.population.n])

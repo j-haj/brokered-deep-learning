@@ -219,6 +219,7 @@ class AENetworkTask(object):
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
 
+        loss = loss.to("cpu")
         return 1.0/(loss + 1e-9)
     
 class NetworkTask(object):
