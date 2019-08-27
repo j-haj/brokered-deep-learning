@@ -7,11 +7,14 @@ import numpy as np
 
 from broker_client.broker_client import BrokerClient
 from nn.classification import SimpleEvo, SimpleNN
+from nn.autoencoder import SequentialAEEvo
 from nn.genotype import Population
 from nn.network_task import AENetworkTask, NetworkTask
 from nn.data import Dataset
 
 from task_service.task_service_pb2 import Task
+
+
 
 class EvoBuilder():
 
@@ -21,6 +24,14 @@ class EvoBuilder():
     def build(self):
         return SimpleEvo(self.max_layers)
 
+
+class AEEvoBuilder():
+    def __init__(self, max_layers):
+        self.max_layers = max_layers
+
+    def build(self):
+        return SequentialAEEvo(self.max_layers)
+    
 class ModelRunner():
 
     def __init__(self, model_address, broker_client, dataset,
@@ -40,6 +51,14 @@ class ModelRunner():
         self.accuracies = []
         self.start = 0.0
         self.n_reductions = n_reductions
+        self.binarize = False
+        self.fuzz = False
+
+    def set_binarize(self, b):
+        self.binarize = b
+
+    def set_fuzz(self, b):
+        self.fuzz = b
 
     def _next_task_id(self):
         tid = "{}#{}".format(self.model_address, self.counter)
@@ -113,7 +132,9 @@ class ModelRunner():
                                   dataset=self.dataset,
                                   n_epochs=self.n_epochs,
                                   n_modules=self.n_modules,
-                                  n_reductions=self.n_reductions)
+                                  n_reductions=self.n_reductions,
+                                  binarize=self.binarize,
+                                  fuzz=self.fuzz)
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,

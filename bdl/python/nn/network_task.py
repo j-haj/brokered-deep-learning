@@ -39,11 +39,6 @@ def get_data(dataset, batch_size, **kwargs):
 
 class AENetworkTask(object):
 
-    _model = None
-    _device = torch.device("cpu")
-    _cuda = False
-    _batch_size = 32
-
     def __init__(self, img_path, layers, dataset, n_epochs=10,
                  log_interval=10, n_modules=2, n_reductions=1,
                  binarize=False, fuzz=False):
@@ -53,8 +48,14 @@ class AENetworkTask(object):
             d = "mnist"
         elif dataset == Dataset.FASHION_MNIST:
             d = "fashion_mnist"
+        elif dataset == Dataset.SVHN:
+            d = "svhn"
         else:
             d = "unknown"
+        self._model = None
+        self._device = torch.device("cpu")
+        self._cuda = False
+        self._batch_size = 32
         self._img_path = "%s_%s_%dmod_%dred" % (d, img_path, n_modules, n_reductions)
         self._layers = layers
         self._dataset = dataset

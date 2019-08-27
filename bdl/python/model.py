@@ -10,7 +10,7 @@ import grpc
 from empty_task import EmptyTask
 
 from broker_client.broker_client import BrokerClient
-from model_runner.model_runner import ModelRunner, EvoBuilder
+from model_runner.model_runner import ModelRunner, EvoBuilder, AEEvoBuilder
 from model_service.model_service_pb2_grpc import ModelServiceServicer
 from model_service.model_service_pb2_grpc import ModelServiceStub
 from model_service import model_service_pb2
@@ -134,6 +134,10 @@ def get_args():
                         help="Max layer size.")
     parser.add_argument("--result_path", default="model_results.csv",
                         help="Path to save model results.")
+    parser.add_argument("--binarize", action="store_true",
+                        help="Binarize IR in autoencoder.")
+    parser.add_argument("--fuzz", action="store_true",
+                        help="Fuzz input to autoencoder.")
 
     return parser.parse_args()
 
@@ -147,7 +151,7 @@ def main():
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
     population = Population(args.population_size,
-                            EvoBuilder(args.max_layer_size))
+                            AEEvoBuilder(args.max_layer_size))
     
     server = ModelServer(model_address=args.model_address,
                          broker_address=args.broker_address,
@@ -157,6 +161,7 @@ def main():
                          n_modules=args.n_modules,
                          n_epochs=args.epochs,
                          result_path=args.result_path)
+
     server.serve()
     
 if __name__ == "__main__":
