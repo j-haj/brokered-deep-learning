@@ -285,6 +285,12 @@ class SequentialAEEvo(object):
         c._layers = [l for l in self._layers]
         return c
 
+    def mate(self, other):
+        offspring = self.crossover(other)
+        if np.random.rand() < .5:
+            return [offspring, self.clone().mutate(), other.clone.mutate()]
+        return [offspring]
+
     def mutate(self):
         if len(self._layers) < self._max_length:
             self._add_random_layer()
