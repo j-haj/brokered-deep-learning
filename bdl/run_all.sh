@@ -1,6 +1,6 @@
 #!/bin/bash
 # Set out files
-N=8
+N=4
 NS_OUT="ns$N.out"
 B_OUT="broker$N.out"
 M_OUT="model$N.out"
@@ -53,30 +53,30 @@ nohup python3 python/worker.py \
 W4_PID=$!
 
 
-nohup python3 python/worker.py \
-      --debug \
-      --broker_address=$BROKER_ADDR \
-      --cuda_device_id=4 > w5-$N.out &
-W5_PID=$!
-
-nohup python3 python/worker.py \
-      --debug \
-      --broker_address=$BROKER_ADDR \
-      --cuda_device_id=5 > w6-$N.out &
-W6_PID=$!
-
-nohup python3 python/worker.py \
-      --debug \
-      --broker_address=$BROKER_ADDR \
-      --cuda_device_id=6 > w7-$N.out &
-W7_PID=$!
-
-nohup python3 python/worker.py \
-      --debug \
-      --broker_address=$BROKER_ADDR \
-      --cuda_device_id=7 > w8-$N.out &
-W8_PID=$!
-
+# nohup python3 python/worker.py \
+#       --debug \
+#       --broker_address=$BROKER_ADDR \
+#       --cuda_device_id=4 > w5-$N.out &
+# W5_PID=$!
+# 
+# nohup python3 python/worker.py \
+#       --debug \
+#       --broker_address=$BROKER_ADDR \
+#       --cuda_device_id=5 > w6-$N.out &
+# W6_PID=$!
+# 
+# nohup python3 python/worker.py \
+#       --debug \
+#       --broker_address=$BROKER_ADDR \
+#       --cuda_device_id=6 > w7-$N.out &
+# W7_PID=$!
+# 
+# nohup python3 python/worker.py \
+#       --debug \
+#       --broker_address=$BROKER_ADDR \
+#       --cuda_device_id=7 > w8-$N.out &
+# W8_PID=$!
+# 
 printf "$N workers started. Starting model.\n"
 
 # Start model
@@ -84,10 +84,10 @@ nohup python3 python/model.py \
       --model_address=$MODEL_ADDR \
       --broker_address=$BROKER_ADDR \
       --dataset=cifar10 \
-      --epochs=10 \
+      --epochs=2 \
       --population_size=10 \
-      --max_layer_size=4 \
-      --n_modules=3 \
+      --max_layer_size=5 \
+      --n_modules=1 \
       --result_path=$RESULTS_PATH \
       --debug > $M_OUT &
 

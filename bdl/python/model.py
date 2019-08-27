@@ -147,7 +147,7 @@ def main():
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
     population = Population(args.population_size,
-                            EvoBuilder(args.n_modules))
+                            EvoBuilder(args.max_layer_size))
     
     server = ModelServer(model_address=args.model_address,
                          broker_address=args.broker_address,
