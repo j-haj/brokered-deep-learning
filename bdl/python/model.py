@@ -29,7 +29,8 @@ _DATASETS = {"fashion_mnist": Dataset.FASHION_MNIST,
              "mnist": Dataset.MNIST,
              "cifar10": Dataset.CIFAR10,
              "cars": Dataset.CARS,
-             "svhn": Dataset.SVHN}
+             "svhn": Dataset.SVHN,
+             "stl10": Dataset.STL10}
 
 class Result():
     def __init__(self, task_id, result_obj):
