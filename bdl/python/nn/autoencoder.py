@@ -172,9 +172,11 @@ class SequentialAE(nn.Module):
                 (layers, n_chans) = self._build_module(n_chans)
                 self._encoder_layers.extend(layers)
             self._encoder_layers.extend([
-                    nn.Conv2d(n_chans, n_chans*2, 1),
-                    nn.ReLU(True),
-                    nn.MaxPool2d(2, stride=2)
+                nn.Conv2d(n_chans, n_chans*2, 1),
+                nn.ReLU(True),
+                nn.MaxPool2d(2, stride=2),
+                nn.Tanh()
+
             ])
             n_chans *= 2
 

@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision.utils import save_image
 
-from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, svhn_loaders, Dataset
+from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, stl10_loaders, Dataset
 from nn.classification import SimpleNN
 from nn.autoencoder import SequentialAE
 from nn.layer import LayerType, layers_from_string
@@ -18,7 +18,8 @@ from result.result import NetworkResult
 _TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
                  Dataset.FASHION_MNIST: (1, 28, 28),
                  Dataset.CIFAR10: (3, 32, 32),
-                 Dataset.SVHN: (3, 32, 32)}
+                 Dataset.SVHN: (3, 32, 32),
+                 Dataset.STL10: (3, 96, 96)}
 def get_data(dataset, batch_size, **kwargs):
     if dataset == Dataset.MNIST:
         train_loader, val_loader, _ = mnist_loaders(batch_size,
@@ -29,9 +30,9 @@ def get_data(dataset, batch_size, **kwargs):
     elif dataset == Dataset.CIFAR10:
         train_loader, val_loader, _ = cifar10_loaders(batch_size,
                                                      **kwargs)
-    elif dataset == Dataset.SVHN:
-        train_loader, val_loader, _ = svhn_loaders(batch_size,
-                                                   **kwargs)
+    elif dataset == Dataset.STL10:
+        train_loader, val_loader, _ = stl10_loaders(batch_size,
+                                                    **kwargs)
     else:
         raise ValueError("unknown dataset: {}".format(self.dataset.value))
     return train_loader, val_loader
@@ -50,6 +51,8 @@ class AENetworkTask(object):
             d = "fashion_mnist"
         elif dataset == Dataset.SVHN:
             d = "svhn"
+        elif dataset == Dataset.STL10:
+            d = "stl10"
         else:
             d = "unknown"
         self._model = None

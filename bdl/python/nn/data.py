@@ -7,6 +7,7 @@ class Dataset(Enum):
     MNIST = "mnist"
     CIFAR10 = "cifar10"
     CARS = "cars"
+    STL10 = "stl10"
     SVHN = "svhn"
 
 def cars_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
@@ -36,6 +37,32 @@ def svhn_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])),
         batch_size=test_batch_size, shuffle=True, **kwargs)
+    return train_loader, val_loader, test_loader
+
+def stl10_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
+    train_set = datasets.STL10("../data", download=True,
+                               transform=transforms.Compose([
+                                   transforms.ToTensor(),
+                                   transforms.Normalize((0.5, 0.5, 0.5),
+                                                        (0.5, 0.5, 0.5))
+                               ]))
+    train_n = int(len(train_set) * train_weight)
+    val_n = len(train_set) - train_n
+    train, val = torch.utils.data.random_split(train_set, [train_n, val_n])
+    train_loader = torch.utils.data.DataLoader(train,
+                                               batch_size=batch_size,
+                                               shuffle=True,
+                                               **kwargs)
+    val_loader = torch.utils.data.DataLoader(val,
+                                             batch_size=batch_size,
+                                             shuffle=True,
+                                             **kwargs)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.STL10("../data", split="test", download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                       ])))
     return train_loader, val_loader, test_loader
     
 def mnist_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
