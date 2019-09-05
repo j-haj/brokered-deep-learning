@@ -4,7 +4,7 @@ N=8
 NS_OUT="ns$N.out"
 B_OUT="broker$N.out"
 M_OUT="model$N.out"
-RESULTS_PATH="results_reconstruct_$N.csv"
+RESULTS_PATH="results_3red_1mod_manifold_$N.csv"
 printf "Saving results to $RESULTS_PATH\n"
 
 # Server addresses
@@ -84,10 +84,11 @@ nohup python3 python/model.py \
       --model_address=$MODEL_ADDR \
       --broker_address=$BROKER_ADDR \
       --dataset=stl10 \
-      --epochs=5 \
+      --epochs=2 \
       --population_size=10 \
       --max_layer_size=10 \
       --n_modules=1 \
+      --n_reductions=3 \
       --result_path=$RESULTS_PATH \
       --debug > $M_OUT &
 

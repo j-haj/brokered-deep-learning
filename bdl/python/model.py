@@ -75,7 +75,7 @@ class ModelServer():
 
     def __init__(self, model_address, broker_address, dataset,
                  result_servicer, population, result_path,
-                 max_generations=100, n_modules=5, n_epochs=10):
+                 max_generations=100, n_modules=5, n_reductions=1, n_epochs=10):
         self.task_count = 0
         self.model_address = model_address
         self.broker_address = broker_address
@@ -93,6 +93,7 @@ class ModelServer():
                                         population=population,
                                         max_generations=max_generations,
                                         n_modules=n_modules,
+                                        n_reductions=n_reductions,
                                         n_epochs=n_epochs,
                                         result_path=result_path)
 
@@ -129,6 +130,8 @@ def get_args():
                         help="Size of population.")
     parser.add_argument("--n_modules", default=3, type=int,
                         help="Max number of modules to use.")
+    parser.add_argument("--n_reductions", default=1, type=int,
+                        help="Number of reduction modules to use.")
     parser.add_argument("--epochs", default=10, type=int,
                         help="Number of epochs to train.")
     parser.add_argument("--max_layer_size", default=5, type=int,
@@ -160,6 +163,7 @@ def main():
                          result_servicer=ResultServicer(),
                          population=population,
                          n_modules=args.n_modules,
+                         n_reductions=args.n_reductions,
                          n_epochs=args.epochs,
                          result_path=args.result_path)
 
