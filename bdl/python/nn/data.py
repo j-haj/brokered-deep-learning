@@ -1,6 +1,7 @@
 from enum import Enum
 import torch
 from torchvision import datasets, transforms
+from torch.utils.data.sampler import SequentialSampler, SubsetRandomSampler
 
 class Dataset(Enum):
     FASHION_MNIST = "fashion_mnist"
@@ -47,15 +48,20 @@ def stl10_loaders(batch_size, test_batch_size=64, train_weight=.9, **kwargs):
                                                         (0.5, 0.5, 0.5))
                                ]))
     train_n = int(len(train_set) * train_weight)
+    indices = list(range(len(train_set)))
     val_n = len(train_set) - train_n
-    train, val = torch.utils.data.random_split(train_set, [train_n, val_n])
-    train_loader = torch.utils.data.DataLoader(train,
+    #train, val = train_set[:train_n], train_set[train_n:]
+    train_indices, val_indices = indices[:train_n], indices[train_n:]
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SequentialSampler(val_indices)
+    #train, val = torch.utils.data.random_split(train_set, [train_n, val_n])
+    train_loader = torch.utils.data.DataLoader(train_set,
                                                batch_size=batch_size,
-                                               shuffle=True,
+                                               sampler=train_sampler,
                                                **kwargs)
-    val_loader = torch.utils.data.DataLoader(val,
+    val_loader = torch.utils.data.DataLoader(train_set,
                                              batch_size=batch_size,
-                                             shuffle=True,
+                                             sampler=val_sampler,
                                              **kwargs)
     test_loader = torch.utils.data.DataLoader(
         datasets.STL10("../data", split="test", download=True,

@@ -278,6 +278,10 @@ class SequentialAEEvo(object):
     @property
     def layers(self):
         return self._layers
+
+    @layers.setter
+    def layers(self, l):
+        self._layers = l
         
     def _add_random_layer(self):
         assert len(self._layers) <= self._max_length

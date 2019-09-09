@@ -137,10 +137,10 @@ class AENetworkTask(object):
             elif self._fuzz:
                 t = "_f"
                 
-            dc_img_path = "./img/{}/dc_img{}_{}.png".format(self._img_path,
+            dc_img_path = "./img/{}/dc_img{}_{}.tiff".format(self._img_path,
                                                             t,
                                                             epoch)
-            en_img_path = "./img/{}/en_img{}_{}.png".format(self._img_path,
+            en_img_path = "./img/{}/en_img{}_{}.tiff".format(self._img_path,
                                                             t,
                                                             epoch)
             save_image(pic_in, en_img_path)
@@ -198,9 +198,9 @@ class AENetworkTask(object):
                 noised_img = img + noise                
                 output = self.model(noised_img)
                 loss += F.mse_loss(output, img)
-
-            pic_in = self.to_img(img.cpu().data)
-            pic_out = self.to_img(output.cpu().data)
+            pic_noise = self.to_img(noised_img[:16].cpu().data)
+            pic_in = self.to_img(img[:16].cpu().data)
+            pic_out = self.to_img(output[:16].cpu().data)
             t = ""
 
             if self._binarize:
@@ -208,18 +208,18 @@ class AENetworkTask(object):
             elif self._fuzz:
                 t = "_f"
                 
-            dc_img_path = "./img/{}/dc_img{}_{}.png".format(self._img_path,
+            dc_img_path = "./img/{}/dc_img{}_{}.tiff".format(self._img_path,
                                                             t,
                                                             self._n_epochs)
-            en_img_path = "./img/{}/en_img{}_{}.png".format(self._img_path,
+            en_img_path = "./img/{}/en_img{}_{}.tiff".format(self._img_path,
                                                             t,
                                                             self._n_epochs)
 
             if self._fuzz:
-                fuzz_path = "./img/{}/fuzzed_img{}_{}.png".format(self._img_path,
+                fuzz_path = "./img/{}/fuzzed_img{}_{}.tiff".format(self._img_path,
                                                                   t,
                                                                   self._n_epochs)
-                save_image(self.to_img(noised_img.cpu().data), fuzz_path)
+                save_image(pic_noise, fuzz_path)
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
 
