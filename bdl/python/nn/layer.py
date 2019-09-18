@@ -1,5 +1,6 @@
 from enum import Enum
 
+import torch.nn
 
 class LayerType(Enum):
     CONV_3x3 = "33"
@@ -43,6 +44,24 @@ class Layer(object):
 
     def __repr__(self):
         return "Layer({}x{})".format(self.layer_type.value, self.filter_size)
+
+    def conv_layer(self, in_chan):
+        assert (self.layer_type != LayerType.MAX_POOL
+                and self.layer_type != LayerType.AVG_POOL)
+        if self.layer_type == LayerType.DROPOUT:
+            return nn.Dropout2d()
+        elif self.layer_type == LayerType.CONV_3x3:
+            return nn.Conv2d(in_chan, self.filter_size,
+                             3, padding=1)
+        elif self.layer_type == LayerType.CONV_5x5:
+            return nn.Conv2d(in_chan, self.filter_size,
+                             5, padding=2)
+        elif self.layer_type == LayerType.CONV_7x7:
+            return nn.Conv2d(in_chan, self.filter_size,
+                             7, padding=3)
+        else:
+            raise ValueError("{} - unrecoginzed layer type".format(self.layer_type))
+        return None
 
     @staticmethod
     def from_string(s):
