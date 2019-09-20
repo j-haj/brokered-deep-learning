@@ -17,6 +17,7 @@ from model_service import model_service_pb2
 from model_service import model_service_pb2_grpc
 from nn.genotype import Population
 from nn.data import Dataset
+from nn.vae import SequentialVAEEvoBuilder
 from result.result_pb2_grpc import ResultServiceServicer
 from result import result_pb2
 from result import result_pb2_grpc
@@ -155,7 +156,7 @@ def main():
         logging.basicConfig(format=fmt_str, level=logging.INFO)    
 
     population = Population(args.population_size,
-                            AEEvoBuilder(args.max_layer_size))
+                            SequentialVAEEvoBuilder(args.max_layer_size))
     
     server = ModelServer(model_address=args.model_address,
                          broker_address=args.broker_address,
