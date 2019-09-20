@@ -90,4 +90,3 @@ def layers_from_string(s):
 
     return layers
 
-    

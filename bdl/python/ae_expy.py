@@ -1,10 +1,13 @@
+import logging
 import time
 
 import numpy as np
 
+import torch
+
 from nn.data import Dataset
 from nn.autoencoder import SequentialAEEvo, SequentialAE
-from nn.network_task import AENetworkTask
+from nn.network_task import AENetworkTask, VAENetworkTask
 from nn.layer import Layer, LayerType
 
 _FILTER_SIZES = [8, 16, 32,  64]
@@ -40,9 +43,8 @@ def random_search():
         s.layers = random_layers(n_layers)
         
     
-        task = AENetworkTask("test", s.to_string(), Dataset.STL10,
-                             binarize=False, fuzz=fuzz, n_epochs=epochs,
-                             n_modules=n_modules, n_reductions=n_reductions)
+        task = VAENetworkTask("test", s.to_string(), Dataset.MNIST, n_epochs=epochs)
+                
         start = time.time()
         r = task.run()
         times.append(time.time() - start)
@@ -57,14 +59,12 @@ def custom_network():
     layers = [
         Layer(LayerType.CONV_7x7, 32),
     ]
-    s = SequentialAEEvo(max_len=10)
-    s.layers = layers
-    n_epochs = 40
-    task = AENetworkTask("2epoch-c", s.to_string(), Dataset.STL10,
-                         binarize=False, fuzz=False, n_epochs=n_epochs,
-                         n_modules=1, n_reductions=2)
+    s = "400,400|2|400,400"
+    n_epochs = 10
+    task = VAENetworkTask("2epoch-c", s, Dataset.MNIST, n_epochs=n_epochs, batch_size=128)
+    task.build_model()
     r = task.run()
-    print("Result after {} epochs: {}".format(n_epochs, r.accuracy()))
+    print("Result after {} epochs: {}".format(n_epochs, 1/r.accuracy()))
 
     
 def main():
@@ -74,9 +74,17 @@ def main():
 #        print("iteration %d" % i)
 #        print(s)
 #
-
+    torch.manual_seed(1)
+    debug = True
+    fmt_str = "[%(levelname)s][%(filename)s][%(funcName)s][%(lineno)d][%(message)s]"
+    if debug:
+        logging.basicConfig(format=fmt_str, level=logging.DEBUG)
+        logging.debug("Using DEBUG log level.")
+    else:
+        logging.basicConfig(format=fmt_str, level=logging.INFO)
     #random_search()
     custom_network()
 
 if __name__ == "__main__":
+    
     main()

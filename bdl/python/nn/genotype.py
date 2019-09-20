@@ -147,4 +147,7 @@ class Population(object):
             self.i_iter = 0
             raise StopIteration
 
+    def __len__(self):
+        return len(self.population)
+
         

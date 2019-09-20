@@ -1,29 +1,31 @@
 import argparse
 import logging
 import time
+import os.path
 
 import numpy as np
 import torch
 
 from model_runner.model_runner import EvoBuilder
 from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, Dataset
-from nn.autoencoder import Autoencoder, WideNetBuilder
+from nn.vae import SequentialVAE, SequentialVAEEvoBuilder
 from nn.genotype import Population
 from nn.layer import LayerType, layers_from_string
-from nn.network_task import NetworkTask
+from nn.network_task import NetworkTask, VAENetworkTask
 
 _DATASETS = {"fashion_mnist": Dataset.FASHION_MNIST,
              "mnist": Dataset.MNIST,
              "cifar10": Dataset.CIFAR10,
              "stl10": Dataset.STL10}
 
-def append_to_file(accuracies, path="single_model_results.csv"):
-    with open(path, "a") as f:
+def append_to_file(accuracies, path="single_model_results.csv"):        
+    with open(path, "a+") as f:
         for r in accuracies:
             f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
 
-def run(population, dataset, n_epochs, result_path,
+def run(population, dataset, n_epochs, result_path, batch_size,
         cuda_device_id=None, n_generations=100, n_modules=3):
+
     start = time.time()
     accuracies = []
     initial_size = len(population.population)
@@ -35,7 +37,7 @@ def run(population, dataset, n_epochs, result_path,
         population.generate_offspring()
         
         # Evaluate population
-        logging.debug("Evaluating population.")
+        logging.debug("Evaluating population of size %d." % len(population))
         for g in population:
             should_discard = set()
             if g.is_evaluated():
@@ -50,8 +52,8 @@ def run(population, dataset, n_epochs, result_path,
                 should_discard.add(g)
                 continue
             
-            m = NetworkTask(g.model().to_string(), dataset, 128, n_epochs=n_epochs,
-                            n_modules=n_modules)
+            m = VAENetworkTask("vae_test2", g.model().to_string(), dataset, n_epochs=n_epochs,
+                               batch_size=batch_size)
             if cuda_device_id is not None:
                 r = m.run(cuda_device_id)
             else:
@@ -72,20 +74,23 @@ def run(population, dataset, n_epochs, result_path,
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", default="fashion_mnist",
+    parser.add_argument("--dataset", default="mnist",
                         help=("Dataset to use. Can be one of mnist, "
                               "fashion_mnist (default), cifar10, or stl10."))
     parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
     parser.add_argument("--population_size", type=int, default=20, help="Population size.")
     parser.add_argument("--max_module_depth", type=int, default=5,
                         help="Max depth of a module.")
+    parser.add_argument("--latent_dim", type=int,
+                        help="Dimension for latent variables.")
     parser.add_argument("--max_module_width", type=int, default=5,
                         help="Max width of a module.")
     parser.add_argument("--n_epochs", type=int, default=5, help="Number of epochs.")
     parser.add_argument("--n_modules", type=int, default=5, help="Number of modules.")
-    parser.add_argument("--result_path", help="File path for results.")
+    parser.add_argument("--result_path", required=True, help="File path for results.")
     parser.add_argument("--n_generations", type=int, default=20,
                         help="Number of generations.")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size in training.")
     parser.add_argument("--cuda_device_id", type=int, default=0,
                         help="CUDA device ID to use.")
     return parser.parse_args()
@@ -104,15 +109,16 @@ def main():
         logging.info("CUDA is available. Will attempt to use GPU device.")
     
     population = Population(args.population_size,
-                            WideNetBuilder(args.max_module_depth,
-                                           args.max_module_width))
+                            SequentialVAEEvoBuilder(args.max_module_depth,
+                                                    args.latent_dim))
     run(population,
         dataset=_DATASETS[args.dataset],
         result_path=args.result_path,
         cuda_device_id=args.cuda_device_id,
         n_generations=args.n_generations,
-        n_epochs=args.n_epochs,
-        n_modules=args.n_modules)
+        batch_size=args.batch_size,
+        n_epochs=args.n_epochs)
+
 
 
 if __name__ == "__main__":
