@@ -4,7 +4,7 @@ N=8
 NS_OUT="ns$N.out"
 B_OUT="broker$N.out"
 M_OUT="model$N.out"
-RESULTS_PATH="results_3red_1mod_manifold_$N.csv"
+RESULTS_PATH="results_vae5max_$N.csv"
 printf "Saving results to $RESULTS_PATH\n"
 
 # Server addresses
@@ -83,10 +83,10 @@ printf "$N workers started. Starting model.\n"
 nohup python3 python/model.py \
       --model_address=$MODEL_ADDR \
       --broker_address=$BROKER_ADDR \
-      --dataset=stl10 \
-      --epochs=2 \
+      --dataset=mnist \
+      --epochs=5 \
       --population_size=10 \
-      --max_layer_size=10 \
+      --max_layer_size=5 \
       --n_modules=1 \
       --n_reductions=3 \
       --result_path=$RESULTS_PATH \

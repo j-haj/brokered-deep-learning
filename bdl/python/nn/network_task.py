@@ -146,7 +146,7 @@ class AENetworkTask(object):
                                                              t,
                                                              epoch)
             en_img_path = "./img/{}/en_img{}_{}.tiff".format(self._img_path,
-                                                             t
+                                                             t,
                                                              epoch)
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
