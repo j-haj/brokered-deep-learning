@@ -108,6 +108,7 @@ class SequentialVAE(nn.Module):
             input_size=output_size,
             output_size=tensor_shape[1]*tensor_shape[2])
         self._tensor_shape = tensor_shape
+        self.layers = [l for l in self._encoder_layers + self._decoder_layers]
 
     def _build_module(self, input_layers, input_size, output_size, encoder=False):
         layers = nn.ModuleList()
