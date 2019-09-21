@@ -34,6 +34,14 @@ class SequentialVAEEvo(object):
             self._latent_dim = latent_dim
             self._mutate_latent_dim = False
 
+        self._layers = []
+
+    @property
+    def layers(self):
+        self._layers = [l for l in self._enc_layers + self._dec_layers]
+        return self._layers
+            
+
 
     def clone(self):
         c = SequentialVAEEvo(self._max_len, self._latent_dim)
@@ -120,9 +128,6 @@ class SequentialVAE(nn.Module):
         # In the encoder case we add an additional output layer
         if encoder:
             layers.append(nn.Linear(prior_dim, output_size))
-            print("Encoder length: {}".format(len(layers)))
-        else:
-            print("Decoder length: {}".format(len(layers)))
             
         return layers
 
