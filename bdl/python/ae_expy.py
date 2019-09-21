@@ -61,7 +61,7 @@ def custom_network():
     ]
     s = "400,400|2|400,400"
     n_epochs = 10
-    task = VAENetworkTask("2epoch-c", s, Dataset.MNIST, n_epochs=n_epochs, batch_size=128)
+    task = VAENetworkTask("2epoch-c", s, Dataset.FASHION_MNIST, n_epochs=n_epochs, batch_size=128)
     task.build_model()
     r = task.run()
     print("Result after {} epochs: {}".format(n_epochs, 1/r.accuracy()))

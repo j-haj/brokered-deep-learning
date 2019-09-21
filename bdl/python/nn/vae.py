@@ -34,6 +34,14 @@ class SequentialVAEEvo(object):
             self._latent_dim = latent_dim
             self._mutate_latent_dim = False
 
+        self._layers = []
+
+    @property
+    def layers(self):
+        self._layers = [l for l in self._enc_layers + self._dec_layers]
+        return self._layers
+            
+
 
     def clone(self):
         c = SequentialVAEEvo(self._max_len, self._latent_dim)
@@ -108,7 +116,6 @@ class SequentialVAE(nn.Module):
             input_size=output_size,
             output_size=tensor_shape[1]*tensor_shape[2])
         self._tensor_shape = tensor_shape
-        self.layers = [l for l in self._encoder_layers + self._decoder_layers]
 
     def _build_module(self, input_layers, input_size, output_size, encoder=False):
         layers = nn.ModuleList()
@@ -121,9 +128,6 @@ class SequentialVAE(nn.Module):
         # In the encoder case we add an additional output layer
         if encoder:
             layers.append(nn.Linear(prior_dim, output_size))
-            print("Encoder length: {}".format(len(layers)))
-        else:
-            print("Decoder length: {}".format(len(layers)))
             
         return layers
 

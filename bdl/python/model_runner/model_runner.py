@@ -9,7 +9,7 @@ from broker_client.broker_client import BrokerClient
 from nn.classification import SimpleEvo, SimpleNN
 from nn.autoencoder import SequentialAEEvo
 from nn.genotype import Population
-from nn.network_task import AENetworkTask, NetworkTask
+from nn.network_task import AENetworkTask, NetworkTask, VAENetworkTask
 from nn.data import Dataset
 
 from task_service.task_service_pb2 import Task
@@ -127,14 +127,21 @@ class ModelRunner():
                 seen.add(str(g.model()))
                 #m = NetworkTask(g.model().to_string(), self.dataset, 128, n_epochs=self.n_epochs,
                 #                n_modules=self.n_modules)
-                m = AENetworkTask(img_path="test1",
-                                  layers=g.model().to_string(),
-                                  dataset=self.dataset,
-                                  n_epochs=self.n_epochs,
-                                  n_modules=self.n_modules,
-                                  n_reductions=self.n_reductions,
-                                  binarize=self.binarize,
-                                  fuzz=self.fuzz)
+                #m = AENetworkTask(img_path="test1",
+                #                  layers=g.model().to_string(),
+                #                  dataset=self.dataset,
+                #                  n_epochs=self.n_epochs,
+                #                  n_modules=self.n_modules,
+                #                  n_reductions=self.n_reductions,
+                #                  binarize=self.binarize,
+                #                  fuzz=self.fuzz)
+
+                m = VAENetworkTask(img_path="vae_run",
+                                   layers = g.model().to_string(),
+                                   dataset=self.dataset,
+                                   batch_size=128,
+                                   n_epochs=self.n_epochs)
+                
                 # Create a task
                 t = Task(task_id=self._next_task_id(),
                          source=self.model_address,

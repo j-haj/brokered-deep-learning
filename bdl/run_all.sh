@@ -4,7 +4,7 @@ N=8
 NS_OUT="ns$N.out"
 B_OUT="broker$N.out"
 M_OUT="model$N.out"
-RESULTS_PATH="results_vae5max_$N.csv"
+RESULTS_PATH="results_vae5max_fashion_$N.csv"
 printf "Saving results to $RESULTS_PATH\n"
 
 # Server addresses
@@ -83,7 +83,7 @@ printf "$N workers started. Starting model.\n"
 nohup python3 python/model.py \
       --model_address=$MODEL_ADDR \
       --broker_address=$BROKER_ADDR \
-      --dataset=mnist \
+      --dataset=fashion_mnist \
       --epochs=5 \
       --population_size=10 \
       --max_layer_size=5 \
