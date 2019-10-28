@@ -1,4 +1,4 @@
-
+python/img/*
 *__pycache__
 *.aux
 *.bbl
