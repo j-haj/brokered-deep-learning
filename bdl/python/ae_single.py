@@ -15,16 +15,17 @@ from nn.network_task import NetworkTask, VAENetworkTask
 
 _DATASETS = {"fashion_mnist": Dataset.FASHION_MNIST,
              "mnist": Dataset.MNIST,
+             "kmnist": Dataset.KMNIST,
              "cifar10": Dataset.CIFAR10,
              "stl10": Dataset.STL10}
 
 def append_to_file(accuracies, path="single_model_results.csv"):        
     with open(path, "a+") as f:
         for r in accuracies:
-            f.write("{},{:.4f},{:.8f},{}\n".format(r[0], r[1], r[2], r[3]))
+            f.write("{},{:.4f},{:.8f},{},{}\n".format(r[0], r[1], r[2], r[3], r[4]))
 
 def run(population, dataset, n_epochs, result_path, batch_size,
-        cuda_device_id=None, n_generations=100, n_modules=3):
+        cuda_device_id=None, n_generations=100, n_modules=3, early_stop=1.0, sub_sample=1.0):
 
     start = time.time()
     accuracies = []
@@ -42,7 +43,7 @@ def run(population, dataset, n_epochs, result_path, batch_size,
             should_discard = set()
             if g.is_evaluated():
                 accuracies.append([generation, time.time() - start,
-                                   g.fitness(), g.model()])
+                                   g.fitness(), -1, g.model()])
             elif str(g.model()) in seen:
                 # We only get this far if the previously seen genotype has not
                 # yet been evaluated. This occurs if we randomly evolve a
@@ -52,14 +53,15 @@ def run(population, dataset, n_epochs, result_path, batch_size,
                 should_discard.add(g)
                 continue
             
-            m = VAENetworkTask("vae_test2", g.model().to_string(), dataset, n_epochs=n_epochs,
-                               batch_size=batch_size)
+            m = VAENetworkTask("vae_test2", g.model().to_string(), dataset,
+                               n_epochs=n_epochs, batch_size=batch_size,
+                               early_stop=early_stop, sub_sample=sub_sample)
             if cuda_device_id is not None:
                 r = m.run(cuda_device_id)
             else:
                 r = m.run()
             accuracies.append([generation, time.time() - start,
-                               r.accuracy(), g.model()])
+                               r.accuracy(), r.epochs(), g.model()])
             seen.add(str(g.model()))
 
         pop = set(population.offspring)
@@ -78,7 +80,7 @@ def get_args():
                         help=("Dataset to use. Can be one of mnist, "
                               "fashion_mnist (default), cifar10, or stl10."))
     parser.add_argument("--debug", action="store_true", help="Enable debug mode.")
-    parser.add_argument("--population_size", type=int, default=20, help="Population size.")
+    parser.add_argument("--population_size", type=int, default=10, help="Population size.")
     parser.add_argument("--max_module_depth", type=int, default=5,
                         help="Max depth of a module.")
     parser.add_argument("--latent_dim", type=int,
@@ -90,6 +92,9 @@ def get_args():
     parser.add_argument("--result_path", required=True, help="File path for results.")
     parser.add_argument("--n_generations", type=int, default=20,
                         help="Number of generations.")
+    parser.add_argument("--early_stop", type=float, default=0.0, help="Early stop threshold")
+    parser.add_argument("--sub_sample", type=float, default=1.0,
+                        help="Percent of training to sub-sample")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size in training.")
     parser.add_argument("--cuda_device_id", type=int, default=0,
                         help="CUDA device ID to use.")
@@ -117,7 +122,9 @@ def main():
         cuda_device_id=args.cuda_device_id,
         n_generations=args.n_generations,
         batch_size=args.batch_size,
-        n_epochs=args.n_epochs)
+        n_epochs=args.n_epochs,
+        early_stop=args.early_stop,
+        sub_sample=args.sub_sample)
 
 
 

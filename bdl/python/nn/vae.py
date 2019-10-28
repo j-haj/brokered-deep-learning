@@ -40,7 +40,6 @@ class SequentialVAEEvo(object):
     def layers(self):
         self._layers = [l for l in self._enc_layers + self._dec_layers]
         return self._layers
-            
 
 
     def clone(self):
@@ -74,13 +73,13 @@ class SequentialVAEEvo(object):
     def crossover(self, other):
         c = self.clone()
         c._dec_layers = [l for l in other._dec_layers]
-        return c
+        return c.mutate()
 
     def mate(self, other):
         o1 = self.clone() if np.random.rand() < .5 else self.clone().mutate()
         o2 = other.clone() if np.random.rand() < .5 else other.clone().mutate()
         offspring = self.crossover(other)
-        return [offspring, o1, o2]
+        return [offspring, o1.mutate(), o2.mutate()]
 
     def __len__(self):
         return len(self._layers)
@@ -108,13 +107,13 @@ class SequentialVAE(nn.Module):
         output_size = int(layers[1])
         self._encoder_layers = self._build_module(
             input_layers=map(lambda x: int(x), layers[0].split(",")),
-            input_size=tensor_shape[1]*tensor_shape[2],
+            input_size=tensor_shape[0]*tensor_shape[1]*tensor_shape[2],
             output_size=output_size,
             encoder=True)
         self._decoder_layers = self._build_module(
             input_layers=map(lambda x: int(x), layers[2].split(",")),
             input_size=output_size,
-            output_size=tensor_shape[1]*tensor_shape[2])
+            output_size=tensor_shape[0]*tensor_shape[1]*tensor_shape[2])
         self._tensor_shape = tensor_shape
 
     def _build_module(self, input_layers, input_size, output_size, encoder=False):
@@ -147,10 +146,10 @@ class SequentialVAE(nn.Module):
         return mu + eps * std
 
     def forward(self, x):
-        shape = self._tensor_shape[1]*self._tensor_shape[2]
+        shape = self._tensor_shape[0]*self._tensor_shape[1]*self._tensor_shape[2]
         mu, logvar = self.encode(x.view(-1, shape))
         z = self.reparameterize(mu, logvar)
-        return self.decode(z), mu, logvar
+        return self.decode(z).view(-1, *self._tensor_shape), mu, logvar
     
                       
 class SequentialVAEEvoBuilder(object):

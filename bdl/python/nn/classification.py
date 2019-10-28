@@ -17,6 +17,11 @@ from nn.layer import LayerType, Layer, layers_from_string
 _LAYER_TYPES = [LayerType.CONV_3x3, LayerType.CONV_5x5]
 _FILTER_SIZES = [16, 32, 64, 128]
 
+class EfficientSeqEvo(object):
+
+    def __init__(self, max_num_layers):
+        self._max_layers = max_num_layers
+        
 
 class SimpleNN(nn.Module):
     def __init__(self, tensor_shape, output_size, layers, n_modules):

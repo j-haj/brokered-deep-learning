@@ -13,6 +13,7 @@ import scipy.stats as stats
 from scipy.stats import norm
 
 from nn.data import mnist_loaders, fashion_mnist_loaders, cifar10_loaders, stl10_loaders, Dataset
+from nn.data import kmnist_loaders, emnist_loaders
 from nn.classification import SimpleNN
 from nn.autoencoder import SequentialAE
 from nn.vae import SequentialVAE
@@ -22,18 +23,31 @@ from result.result import NetworkResult
 
 _TENSOR_SHAPE = {Dataset.MNIST: (1, 28, 28),
                  Dataset.FASHION_MNIST: (1, 28, 28),
+                 Dataset.EMNIST: (1, 28, 28),
+                 Dataset.KMNIST: (1, 28, 28),
                  Dataset.CIFAR10: (3, 32, 32),
                  Dataset.SVHN: (3, 32, 32),
                  Dataset.STL10: (3, 96, 96)}
-def get_data(dataset, batch_size, **kwargs):
+def get_data(dataset, batch_size, sub_sample, **kwargs):
     if dataset == Dataset.MNIST:
         train_loader, val_loader, _ = mnist_loaders(batch_size,
+                                                    sub_sample=sub_sample,
                                                     **kwargs)
+    elif dataset == Dataset.EMNIST:
+        train_loader, val_loader, _ = emnist_loaders(batch_size,
+                                                     sub_sample=sub_sample,
+                                                     **kwargs)
+    elif dataset == Dataset.KMNIST:
+        train_loader, val_loader, _ = kmnist_loaders(batch_size,
+                                                     sub_sample=sub_sample,
+                                                     **kwargs)
     elif dataset == Dataset.FASHION_MNIST:
         train_loader, val_loader, _ = fashion_mnist_loaders(batch_size,
+                                                            sub_sample=sub_sample,
                                                             **kwargs)
     elif dataset == Dataset.CIFAR10:
         train_loader, val_loader, _ = cifar10_loaders(batch_size,
+                                                      sub_sample=sub_sample,
                                                      **kwargs)
     elif dataset == Dataset.STL10:
         train_loader, val_loader, _ = stl10_loaders(batch_size,
@@ -157,7 +171,8 @@ class AENetworkTask(object):
             self._device = torch.device("cuda:%d" % cuda_device_id)
         logging.debug("Training network: {}".format(self._layers))
         # Load data
-        train_loader, val_loader = get_data(self._dataset, self._batch_size, **self._kwargs)
+        train_loader, val_loader = get_data(self._dataset, self._batch_size,
+                                            self._sub_Sample, **self._kwargs)
 
         # Build model
         self.build_model()
@@ -234,11 +249,16 @@ class AENetworkTask(object):
 
 class VAENetworkTask(object):
 
-    def __init__(self, img_path, layers, dataset, batch_size=32, n_epochs=10, log_interval=10):
+    def __init__(self, img_path, layers, dataset, batch_size=32, n_epochs=10, log_interval=10,
+                 epoch_callback=None, early_stop=0.0, sub_sample=1.0):
         if dataset == Dataset.CIFAR10:
             d = "cifar10"
         elif dataset == Dataset.MNIST:
             d = "mnist"
+        elif dataset == Dataset.KMNIST:
+            d = "kmnist"
+        elif dataset == Dataset.EMNIST:
+            d = "emnist"
         elif dataset == Dataset.FASHION_MNIST:
             d = "fashion_mnist"
         elif dataset == Dataset.SVHN:
@@ -264,6 +284,11 @@ class VAENetworkTask(object):
         self._check_gpu()
         self._kwargs = {"num_workers": 1, "pin_memory": True} if self._cuda else {}
         self._log_interval = 10
+        if epoch_callback is not None:
+            assert callable(epoch_callback)
+            self._epoch_callback = epoch_callback
+        else:
+            self._epoch_callback = None
 
         # Make image directory
         p = "./img/%s" % self._img_path
@@ -275,6 +300,9 @@ class VAENetworkTask(object):
             os.makedirs(s)
         if not os.path.exists(m):
             os.makedirs(m)
+
+        self._early_stop_threshold = early_stop
+        self._sub_sample = sub_sample
             
             
 
@@ -299,8 +327,10 @@ class VAENetworkTask(object):
 
 
     def loss_function(self, recon_x, x, mu, logvar):
-        shape = self._tensor_shape[1]*self._tensor_shape[2]
-        bce = F.binary_cross_entropy(recon_x, x.view(-1, shape), reduction="sum")
+        shape = self._tensor_shape[0] * self._tensor_shape[1]*self._tensor_shape[2]
+        bce = F.binary_cross_entropy(recon_x.view(-1, shape),
+                                     x.view(-1, shape),
+                                     reduction="sum")
         kld = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return bce + kld
     
@@ -327,9 +357,9 @@ class VAENetworkTask(object):
                 logging.debug("Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
                     epoch, batch_idx * len(img), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss.item()))
-        logging.info("Epoch train loss: {:.6f}".format(train_loss / len(train_loader.dataset)))
+        train_loss /= len(train_loader.dataset)
+        logging.info("Epoch {} train loss: {:.6f}".format(epoch, train_loss))
 
-        logging.debug("Saving images.")
         if epoch % 1 == 0:
             pic_in = self.to_img(img.cpu().data)
             pic_out = self.to_img(output.cpu().data)
@@ -343,15 +373,15 @@ class VAENetworkTask(object):
                                                             epoch)
             save_image(pic_in, en_img_path)
             save_image(pic_out, dc_img_path)
-        logging.debug("Done saving images.")
-        return mu, logvar
+        return mu, logvar, train_loss
     
     def run(self, cuda_device_id=None):
         if cuda_device_id is not None and self._cuda:
             self._device = torch.device("cuda:%d" % cuda_device_id)
         logging.debug("Training network: {}".format(self._layers))
         # Load data
-        train_loader, val_loader = get_data(self._dataset, self._batch_size, **self._kwargs)
+        train_loader, val_loader = get_data(self._dataset, self._batch_size,
+                                            self._sub_sample, **self._kwargs)
 
         # Build model
         self.build_model()
@@ -362,16 +392,26 @@ class VAENetworkTask(object):
         optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
 
         # Train
+        prior_loss = 0.0
+        epoch_count = 0
         for epoch in range(self._n_epochs):
-            mu, logvar = self.train(train_loader, optimizer, epoch)
+            epoch_count += 1
+            mu, logvar, loss = self.train(train_loader, optimizer, epoch+1)
+            if self._epoch_callback is not None:
+                self._epoch_callback(self.eval(val_loader))
             self.generate_sample(epoch, mu, logvar)
             if self._latent_dim == 2:
                 self.generate_manifold(epoch)
+            if np.abs(prior_loss - loss) / np.abs(loss) < self._early_stop_threshold:
+                logging.info(("Stopping early - train loss is with"
+                              " {:.4f}\% between epochs").format(self._early_stop_threshold))
+                break
+            prior_loss = loss
 
         # Get validation accuracy
         val_acc = self.eval(val_loader)
         logging.debug("Finished training %d epochs with %.6f validation accuracy" %
-                      (self._n_epochs, val_acc))
+                      (epoch_count, val_acc))
 
         
         # Clean up resources
@@ -379,7 +419,7 @@ class VAENetworkTask(object):
         del train_loader
         del val_loader
 
-        return NetworkResult(1/val_acc)
+        return NetworkResult(1/val_acc, epoch_count)
 
     def generate_sample(self, epoch, mu, logvar):
         latent_dim = int(self._layers.split("|")[1])
